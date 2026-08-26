@@ -35,11 +35,11 @@ function fakeR2(seed = []) {
 function request(path, { method = "GET", token, body, headers = {} } = {}) {
   const h = new Headers(headers);
   if (token !== undefined) h.set("authorization", `Bearer ${token}`);
-  return new Request(`https://dump.denied.se${path}`, { method, headers: h, body });
+  return new Request(`https://dumpen.denied.se${path}`, { method, headers: h, body });
 }
 
 function env(r2 = fakeR2()) {
-  return { DUMP_TOKEN: TOKEN, DUMP_ADMIN_USER: ADMIN_USER, DUMP_ADMIN_PASSWORD: ADMIN_PASSWORD, DUMP: r2 };
+  return { DUMPEN_TOKEN: TOKEN, DUMPEN_ADMIN_USER: ADMIN_USER, DUMPEN_ADMIN_PASSWORD: ADMIN_PASSWORD, DUMPEN: r2 };
 }
 
 function basic(user = ADMIN_USER, password = ADMIN_PASSWORD) {
@@ -56,7 +56,7 @@ test("root visar mörk dashboard, status och login", async () => {
   const response = await worker.fetch(request("/"), env(fakeR2(versions)));
   const html = await response.text();
   assert.equal(response.status, 200);
-  assert.match(html, /dump\.denied\.se/);
+  assert.match(html, /dumpen\.denied\.se/);
   assert.match(html, /Lista objekt/);
   assert.match(html, /--bg:#050505/);
   assert.match(html, /20 MB per fil/);
@@ -99,7 +99,7 @@ test("publik GET returnerar nyaste", async () => {
   const response = await worker.fetch(request("/regelverk"), env(fakeR2(versions)));
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "new");
-  assert.equal(response.headers.get("x-dump-key"), "regelverk/3000.zip");
+  assert.equal(response.headers.get("x-dumpen-key"), "regelverk/3000.zip");
 });
 
 test("?n=2 returnerar näst nyaste", async () => {
@@ -134,8 +134,8 @@ test("objektlista grupperar versioner efter namn", async () => {
 
 test("objektlista ger 503 om adminsecrets saknas", async () => {
   const e = env();
-  delete e.DUMP_ADMIN_USER;
-  delete e.DUMP_ADMIN_PASSWORD;
+  delete e.DUMPEN_ADMIN_USER;
+  delete e.DUMPEN_ADMIN_PASSWORD;
   const response = await worker.fetch(request("/api/objects", { headers: { authorization: basic() } }), e);
   assert.equal(response.status, 503);
 });
