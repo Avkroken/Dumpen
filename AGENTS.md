@@ -1,18 +1,25 @@
-# klarsprak — AI Agent Guide
+# dump — AI Agent Guide
 
-Statisk prototyp på Cloudflare Workers som jämför allmänspråklig betydelse med juridisk/myndighetsmässig användning. Skillnader ska vara källbelagda, inte gissade.
+`dump` är ett arbetsrepo/sandbox som ursprungligen importerades från `klarsprak`. Behandla kvarvarande klarsprak-referenser som historiskt källmaterial, inte som resurser som `dump` får äga eller deploya över.
 
-## Innehåll och teknik
+## Säkerhetsgränser
 
-- Varje term behöver parafraserad allmänspråklig betydelse med källa, institutionell/juridisk användning med primär eller officiell källa, härledd skillnad och tydlig status för juridisk sakkontroll.
-- Frontend ligger i `public/`; backend är `src/worker.js` med assets-binding och D1-binding `DB`.
-- Admin-API skyddas av bearer-token mot `ADMIN_TOKEN`. Lita inte på Cloudflare Access utan faktisk verifiering.
-- Deploy sker via `.github/workflows/deploy.yml` efter push till `main`.
-- Innehållet är pilotmaterial. Ändringar av sakinnehåll ska flaggas om de saknar mänsklig juridisk granskning.
+- Automatisk produktiondeploy är avvecklad i `dump` tills repot har egna uttryckliga Cloudflare-resurser.
+- Använd inte `KLARSPRAK`-secret, `klarsprak-db` eller `klarsprak.denied.se` för deploy från detta repo.
+- Ändra inte organisationens secrets, Cloudflare-resurser eller externa miljöer utan uttrycklig instruktion.
+- Security alerts ska representeras som GitHub Issues via `.github/workflows/security-alert-issues.yml`; den gamla snapshot-/loggmodellen ska inte återinföras.
+- Vanliga Code Scanning- och Dependabot-vulnerabilities skapar Issues från severity Medium och uppåt. Malware-alerts inkluderas alltid.
+
+## Kod och struktur
+
+- Frontend ligger i `public/`.
+- Worker-kod ligger i `src/`.
+- D1-migrationer ligger i `migrations/` och är för närvarande arv från källkopian.
+- Kontrollera `README.md` och `wrangler.jsonc` innan ändringar som berör runtime eller Cloudflare.
 
 ## GitHub-arbetsflöde
 
-Arbete sker i en **sluten pool av tre grenar**, en per arbetstyp:
+Arbete sker i en sluten pool av tre grenar:
 
 | Slot | För |
 | --- | --- |
@@ -20,29 +27,14 @@ Arbete sker i en **sluten pool av tre grenar**, en per arbetstyp:
 | `work/fix` | buggfixar och CI-problem |
 | `work/chore` | dokumentation, städning, konfiguration |
 
-`main` tar bara emot squash-mergade PR:er som passerat gröna checkar.
+`main` tar emot ändringar via PR. Skapa inte egna grenar utanför poolen.
 
-**Skapa aldrig egna grenar.** Rulesetet blockerar det — en push som försöker
-skapa något utanför poolen avvisas. Poolen finns för att grenar som skapas per
-uppgift blir liggande halvfärdiga.
-
-1. Välj sloten som matchar arbetet. Är den upptagen duger vilken ledig som helst —
-   namnen är vägledning, inte en spärr. Ligger det omergat arbete i en slot,
-   **slutför det först** i stället för att börja något nytt i en annan.
-2. Implementera och kör relevanta tester lokalt (`bun run test` och andra kontroller som berör ändringen).
-3. Pusha till sloten och öppna PR från den till `main` som klar för granskning.
-   Aktivera auto-merge — merge-kön tar PR:n så snart required checks är gröna.
-4. Lös CI- och reviewproblem i samma slot; PR:n uppdateras av varje push.
-5. **Squash merge är den enda tillåtna merge-metoden.** Efter merge rebasar
-   `.github/workflows/sync-pool.yml` varje slot på `main`.
-
-Skicka aldrig direkt till `main`, kringgå inte branch protection/rulesets och ändra
-inte hemligheter eller organisationsinställningar utan uttrycklig instruktion.
+1. Använd en ledig poolgren och slutför befintligt omergat arbete först.
+2. Kör relevanta tester för ändringen.
+3. Öppna PR mot `main` och använd squash merge.
+4. Lös CI- och reviewproblem i samma gren.
+5. Låt `sync-pool.yml` återställa poolgrenarna efter merge.
 
 ## Svarsformat
 
-**[SKILLS.md](SKILLS.md) styr allt svarsformat. Läs den och följ den i varje svar.**
-
-SKILLS.md har företräde framför den här filen och framför varje annan
-formuleringsanvisning i repot. Sammanfatta den inte, återge den inte i kortform
-och väg den inte mot andra skrivelser — det är den filen som gäller.
+[SKILLS.md](SKILLS.md) styr svarsformatet för arbete i repot.
