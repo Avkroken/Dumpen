@@ -1,75 +1,126 @@
+import { homePage } from "./page.js";
+
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_BUCKET_BYTES = 500 * 1024 * 1024;
+const RETENTION_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function listAll(bucket, options = {}) {
   const objects = [];
   let cursor;
-
   do {
     const page = await bucket.list({ ...options, cursor });
     objects.push(...page.objects);
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
-
   return objects;
 }
 
-function homePage() {
-  return `<!doctype html>
-<html lang="sv">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>dump</title>
-  <style>
-    body { max-width: 760px; margin: 48px auto; padding: 0 20px; font: 16px/1.55 system-ui, sans-serif; color: #18181b; }
-    h1 { margin-bottom: .25rem; }
-    code { background: #f4f4f5; padding: .12rem .35rem; border-radius: 4px; }
-    pre { overflow-x: auto; background: #f4f4f5; padding: 14px; border-radius: 8px; }
-    .muted { color: #52525b; }
-  </style>
-</head>
-<body>
-  <h1>dump</h1>
-  <p class="muted">Tillfälligt ZIP-lager på Cloudflare R2 med stabil nedladdningsadress.</p>
+function constantTimeEqual(a, b) {
+  const aa = new TextEncoder().encode(a);
+  const bb = new TextEncoder().encode(b);
+  const length = Math.max(aa.length, bb.length);
+  let diff = aa.length ^ bb.length;
+  for (let i = 0; i < length; i += 1) diff |= (aa[i] || 0) ^ (bb[i] || 0);
+  return diff === 0;
+}
 
-  <h2>Användning</h2>
-  <p><code>GET /&lt;namn&gt;</code> hämtar senaste versionen publikt.</p>
-  <p><code>GET /&lt;namn&gt;?n=2</code> hämtar näst senaste versionen.</p>
-  <p><code>PUT /&lt;namn&gt;</code> laddar upp en ny ZIP-version och kräver <code>DUMP_TOKEN</code>.</p>
+function adminAuthorized(req, env) {
+  if (!env.DUMP_ADMIN_USER || !env.DUMP_ADMIN_PASSWORD) return null;
+  const auth = req.headers.get("authorization") || "";
+  if (!auth.startsWith("Basic ")) return false;
+  try {
+    const decoded = atob(auth.slice(6));
+    const separator = decoded.indexOf(":");
+    if (separator < 0) return false;
+    return constantTimeEqual(decoded.slice(0, separator), env.DUMP_ADMIN_USER)
+      && constantTimeEqual(decoded.slice(separator + 1), env.DUMP_ADMIN_PASSWORD);
+  } catch {
+    return false;
+  }
+}
 
-  <h2>Gränser</h2>
-  <ul>
-    <li>Max 20 MB per uppladdning.</li>
-    <li>Max 500 MB totalt i bucketen.</li>
-    <li>Objekt bör raderas automatiskt efter 30 dagar via R2 lifecycle.</li>
-  </ul>
+function objectStats(objects) {
+  const totalBytes = objects.reduce((sum, obj) => sum + (obj.size || 0), 0);
+  const oldest = objects.reduce((value, obj) => {
+    const uploaded = obj.uploaded instanceof Date ? obj.uploaded : new Date(obj.uploaded);
+    return !value || uploaded < value ? uploaded : value;
+  }, null);
+  return {
+    totalBytes,
+    objectCount: objects.length,
+    oldestDays: oldest ? Math.max(0, Math.floor((Date.now() - oldest.getTime()) / DAY_MS)) : null,
+  };
+}
 
-  <h2>Exempel</h2>
-  <pre>zip -qr - . | curl -s -X PUT \\
-  -H "Authorization: Bearer $DUMP_TOKEN" \\
-  --data-binary @- \\
-  "https://dump.denied.se/$(basename "$PWD")"</pre>
-  <pre>wget https://dump.denied.se/regelverk</pre>
-</body>
-</html>\n`;
+function groupedObjects(objects) {
+  const groups = new Map();
+  for (const obj of objects) {
+    const slash = obj.key.indexOf("/");
+    const name = slash >= 0 ? obj.key.slice(0, slash) : obj.key;
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(obj);
+  }
+
+  return [...groups.entries()].map(([name, versions]) => {
+    versions.sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));
+    const latest = versions[0];
+    const oldest = versions[versions.length - 1];
+    return {
+      name,
+      versions: versions.length,
+      latestSize: latest.size || 0,
+      latestUploaded: new Date(latest.uploaded).toISOString(),
+      oldestUploaded: new Date(oldest.uploaded).toISOString(),
+    };
+  }).sort((a, b) => new Date(b.latestUploaded) - new Date(a.latestUploaded));
 }
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    const name = url.pathname.split("/").filter(Boolean)[0];
+    const segments = url.pathname.split("/").filter(Boolean);
 
+    if (segments[0] === "api" && segments[1] === "objects") {
+      if (req.method !== "GET") return new Response("method\n", { status: 405 });
+      const authorized = adminAuthorized(req, env);
+      if (authorized === null) return new Response("admin login not configured\n", { status: 503 });
+      if (!authorized) {
+        return new Response("nope\n", {
+          status: 401,
+          headers: { "www-authenticate": 'Basic realm="dump objects", charset="UTF-8"' },
+        });
+      }
+      return Response.json({ objects: groupedObjects(await listAll(env.DUMP)) }, {
+        headers: { "cache-control": "no-store" },
+      });
+    }
+
+    const name = segments[0];
     if (!name) {
       if (req.method !== "GET") return new Response("method\n", { status: 405 });
-      return new Response(homePage(), {
-        headers: { "content-type": "text/html; charset=utf-8" },
+      const stats = objectStats(await listAll(env.DUMP));
+      return new Response(homePage(stats, {
+        maxUploadBytes: MAX_UPLOAD_BYTES,
+        maxBucketBytes: MAX_BUCKET_BYTES,
+        retentionDays: RETENTION_DAYS,
+      }), {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+          "x-content-type-options": "nosniff",
+          "referrer-policy": "no-referrer",
+        },
       });
     }
 
     if (req.method === "PUT") {
       if (req.headers.get("authorization") !== `Bearer ${env.DUMP_TOKEN}`)
         return new Response("nope\n", { status: 401 });
+
+      const declaredLength = Number(req.headers.get("content-length"));
+      if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES)
+        return new Response("too large\n", { status: 413 });
 
       const body = await req.arrayBuffer();
       if (body.byteLength > MAX_UPLOAD_BYTES)
@@ -87,14 +138,12 @@ export default {
 
     if (req.method === "GET") {
       const objects = await listAll(env.DUMP, { prefix: `${name}/` });
-      if (!objects.length)
-        return new Response("tomt\n", { status: 404 });
+      if (!objects.length) return new Response("tomt\n", { status: 404 });
 
       const sorted = objects.sort((a, b) => b.uploaded - a.uploaded);
       const n = Math.max(1, parseInt(url.searchParams.get("n") || "1", 10));
       const pick = sorted[n - 1];
-      if (!pick)
-        return new Response(`bara ${sorted.length} versioner\n`, { status: 404 });
+      if (!pick) return new Response(`bara ${sorted.length} versioner\n`, { status: 404 });
 
       const obj = await env.DUMP.get(pick.key);
       return new Response(obj.body, {
