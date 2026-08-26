@@ -4,7 +4,7 @@
 
 Varje uppladdning lagras som ett nytt objekt under `<namn>/<timestamp>.zip`, men nedladdningsadressen ändras aldrig. En hämtning av `/regelverk` ger därför alltid den senaste uppladdade versionen av `regelverk` utan att klienten behöver känna till filnamn eller versionsnummer.
 
-Alla anrop kräver `Authorization: Bearer $DUMP_TOKEN`. `DUMP_TOKEN` är en Cloudflare-secret och ska aldrig sparas i repot.
+Nedladdning är publik. Uppladdning kräver `Authorization: Bearer $DUMP_TOKEN`. `DUMP_TOKEN` är en Cloudflare runtime-secret och ska aldrig sparas i repot.
 
 ## API
 
@@ -23,11 +23,16 @@ zip -qr - . | curl -s -X PUT \
 
 ### `GET /<namn>`
 
-Hämtar den senaste uppladdade versionen för namnet. Svaret är `application/zip` och skickas som `<namn>.zip`, även om det interna R2-objektets timestamp varierar.
+Hämtar publikt den senaste uppladdade versionen för namnet. Svaret är `application/zip` och skickas som `<namn>.zip`, även om det interna R2-objektets timestamp varierar.
 
 ```bash
-curl -sO -J -H "Authorization: Bearer $DUMP_TOKEN" \
-  "https://dump.denied.se/regelverk"
+wget https://dump.denied.se/regelverk
+```
+
+eller:
+
+```bash
+curl -sO -J "https://dump.denied.se/regelverk"
 ```
 
 ### `GET /<namn>?n=2`
@@ -39,6 +44,20 @@ Responsen innehåller även:
 - `x-dump-key` — den faktiska R2-nyckeln som serverades.
 - `x-dump-count` — antal versioner som hittades för namnet.
 
+## Gränser
+
+Workern har avsiktligt betydligt lägre gränser än Cloudflare-plattformens maximala requeststorlek:
+
+- högst **20 MB per uppladdning**; större request ger `413 too large`,
+- högst **500 MB totalt i R2-bucketen**; en uppladdning som skulle passera taket ger `507 dump full`,
+- R2-bucketen `dump` bör ha en lifecycle-regel som automatiskt raderar objekt äldre än **30 dagar**.
+
+Totalgränsen är en nödbroms. Lifecycle-regeln är den normala städningen.
+
+## Startsida
+
+`https://dump.denied.se/` visar användning, autentiseringsmodell och aktuella gränser. Själva ZIP-filerna nås via `/namn`.
+
 ## Utveckling
 
 ```bash
@@ -47,12 +66,6 @@ npm test
 npm run dev
 ```
 
-`DUMP_TOKEN` sätts som secret i Cloudflare-dashboarden. Lägg den inte i `wrangler.jsonc`, källkod eller andra filer i repot.
-
-## Drift
-
-Cloudflare Workers tar emot ungefär maximalt 100 MB per request på den här typen av uppladdning. Större paket behöver en annan uppladdningsmodell, exempelvis direkt multipart-uppladdning till R2.
-
-R2-bucketen `dump` bör ha en lifecycle-regel som automatiskt raderar objekt äldre än 30 dagar. Då fungerar versionshistoriken som ett kortlivat arbetslager utan att gamla dumpar ackumuleras permanent.
+`DUMP_TOKEN` sätts som secret på Workerns runtime i Cloudflare-dashboarden. Lägg den inte i Workers Builds-variabler, `wrangler.jsonc`, källkod eller andra filer i repot.
 
 Deploy sköts av Cloudflare Workers Builds via GitHub-kopplingen. Repot ska därför inte ha någon GitHub Actions-workflow som kör `wrangler deploy`.
