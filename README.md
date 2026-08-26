@@ -32,7 +32,7 @@ curl -sO -J -H "Authorization: Bearer $DUMP_TOKEN" \
 
 ### `GET /<namn>?n=2`
 
-Hämtar den näst senaste versionen. `n=1` är senaste, `n=2` näst senaste och så vidare. Om den begärda versionen inte finns returneras `404`.
+Hämtar den näst senaste versionen från samma stabila URL. `n=1` är senaste, `n=2` näst senaste och så vidare. Om den begärda versionen inte finns returneras `404`.
 
 Responsen innehåller även:
 
