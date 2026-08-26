@@ -1,12 +1,14 @@
-# dump — AI Agent Guide
+# dumpen — AI Agent Guide
 
-`dump` är en Cloudflare Worker som lagrar versionshanterade ZIP-filer i R2 och serverar senaste eller vald tidigare version från en stabil URL.
+`dumpen` är en Cloudflare Worker som lagrar versionshanterade ZIP-filer i R2 och serverar senaste eller vald tidigare version från en stabil URL.
 
 ## Funktion
 
 - Worker-entrypoint: `src/index.js`.
-- R2-binding: `DUMP` mot bucketen `dump`.
-- Runtime-secret: `DUMP_TOKEN`; den får aldrig skrivas till repo-filer.
+- Worker-namn: `dumpen`.
+- Publik domän: `dumpen.denied.se`.
+- R2-binding: `DUMPEN` mot bucketen `dumpen`.
+- Runtime-secrets: `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` och `DUMPEN_ADMIN_PASSWORD`; de får aldrig skrivas till repo-filer.
 - `PUT /<namn>` skapar `<namn>/<timestamp>.zip`.
 - `GET /<namn>` hämtar senaste versionen; `?n=2` hämtar näst senaste.
 - Cloudflare Workers Builds sköter deploy från GitHub. Lägg inte till en GitHub Actions-deploy och kör inte `wrangler deploy` som del av repoautomation.
