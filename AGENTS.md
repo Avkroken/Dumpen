@@ -1,40 +1,24 @@
 # dump — AI Agent Guide
 
-`dump` är ett arbetsrepo/sandbox som ursprungligen importerades från `klarsprak`. Behandla kvarvarande klarsprak-referenser som historiskt källmaterial, inte som resurser som `dump` får äga eller deploya över.
+`dump` är en Cloudflare Worker som lagrar versionshanterade ZIP-filer i R2 och serverar senaste eller vald tidigare version från en stabil URL.
 
-## Säkerhetsgränser
+## Funktion
 
-- Automatisk produktiondeploy är avvecklad i `dump` tills repot har egna uttryckliga Cloudflare-resurser.
-- Använd inte `KLARSPRAK`-secret, `klarsprak-db` eller `klarsprak.denied.se` för deploy från detta repo.
-- Ändra inte organisationens secrets, Cloudflare-resurser eller externa miljöer utan uttrycklig instruktion.
-- Security alerts ska representeras som GitHub Issues via `.github/workflows/security-alert-issues.yml`; den gamla snapshot-/loggmodellen ska inte återinföras.
-- Vanliga Code Scanning- och Dependabot-vulnerabilities skapar Issues från severity Medium och uppåt. Malware-alerts inkluderas alltid.
-
-## Kod och struktur
-
-- Frontend ligger i `public/`.
-- Worker-kod ligger i `src/`.
-- D1-migrationer ligger i `migrations/` och är för närvarande arv från källkopian.
-- Kontrollera `README.md` och `wrangler.jsonc` innan ändringar som berör runtime eller Cloudflare.
+- Worker-entrypoint: `src/index.js`.
+- R2-binding: `DUMP` mot bucketen `dump`.
+- Runtime-secret: `DUMP_TOKEN`; den får aldrig skrivas till repo-filer.
+- `PUT /<namn>` skapar `<namn>/<timestamp>.zip`.
+- `GET /<namn>` hämtar senaste versionen; `?n=2` hämtar näst senaste.
+- Cloudflare Workers Builds sköter deploy från GitHub. Lägg inte till en GitHub Actions-deploy och kör inte `wrangler deploy` som del av repoautomation.
 
 ## GitHub-arbetsflöde
 
-Arbete sker i en sluten pool av tre grenar:
+Arbete sker i den befintliga branch-poolen (`work/feature`, `work/fix`, `work/chore`) och går via PR till `main` när ruleset kräver det. Squash merge används för färdiga ändringar.
 
-| Slot | För |
-| --- | --- |
-| `work/feature` | ny funktionalitet |
-| `work/fix` | buggfixar och CI-problem |
-| `work/chore` | dokumentation, städning, konfiguration |
+CI ska använda npm och köra `npm ci` följt av `npm test`. Actions ska vara pinnade till full commit-SHA.
 
-`main` tar emot ändringar via PR. Skapa inte egna grenar utanför poolen.
-
-1. Använd en ledig poolgren och slutför befintligt omergat arbete först.
-2. Kör relevanta tester för ändringen.
-3. Öppna PR mot `main` och använd squash merge.
-4. Lös CI- och reviewproblem i samma gren.
-5. Låt `sync-pool.yml` återställa poolgrenarna efter merge.
+Security alerts representeras som GitHub Issues via `.github/workflows/security-alert-issues.yml`. Code Scanning och vanliga Dependabot-vulnerabilities rapporteras från Medium och uppåt; malware rapporteras alltid.
 
 ## Svarsformat
 
-[SKILLS.md](SKILLS.md) styr svarsformatet för arbete i repot.
+**[SKILLS.md](SKILLS.md) styr allt svarsformat. Läs den och följ den i varje svar.**
