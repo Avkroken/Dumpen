@@ -1,78 +1,58 @@
-# klarsprak
+# dump
 
-Prototyp-webbplats som jämför **allmänspråklig betydelse** med **myndighets-/juridisk användning** av samma ord och uttryck. Syftet är att synliggöra när offentliga institutioner använder vanliga svenska ord som tekniska termer, bevisnivåer eller beslutströsklar.
+`dump` är en liten Cloudflare Worker för versionshanterade ZIP-dumpar i R2.
 
-Live: **klarsprak.denied.se**
+Varje uppladdning lagras som ett nytt objekt under `<namn>/<timestamp>.zip`, men nedladdningsadressen ändras aldrig. En hämtning av `/regelverk` ger därför alltid den senaste uppladdade versionen av `regelverk` utan att klienten behöver känna till filnamn eller versionsnummer.
 
-## Innehållsmodell
+Alla anrop kräver `Authorization: Bearer $DUMP_TOKEN`. `DUMP_TOKEN` är en Cloudflare-secret och ska aldrig sparas i repot.
 
-Varje publicerad post ska ha fyra delar:
+## API
 
-1. **Ordbokens betydelse** — en kort parafras av en redovisad språkkälla, i första hand Svenska Akademiens ordböcker eller annan etablerad källa.
-2. **Institutionens användning** — en kort parafras av lag, förarbete, domstol eller myndighet.
-3. **Skillnaden** — endast det som faktiskt kan härledas ur de två källorna.
-4. **Källor** — minst en språkkälla och en institutionell/rättslig källa som besökaren kan kontrollera.
+### `PUT /<namn>`
 
-Den tidigare modellen med fältet **"vad människor tror"** används inte längre på den publika sidan. Sådana påståenden kräver empiriskt underlag om människors faktiska uppfattningar och ska inte genereras av AI.
+Laddar upp request body till R2 som en ny ZIP-version. Workern skapar nyckeln `<namn>/<epoch-millis>.zip` och returnerar nyckeln med status `201`.
 
-## Status
+Exempel från den katalog som ska packas:
 
-**Opublicerat/pilot.** De fem poster som visas på startsidan har explicita källhänvisningar men är fortfarande inte juridiskt sakkontrollerade. Äldre AI-genererade poster har tagits bort från den publika listan tills de kan byggas om enligt modellen ovan.
-
-## Teknik
-
-- Frontend: statiska HTML-filer i `public/`, inline CSS+JS, ingen build-process.
-- Backend: Cloudflare Worker i `src/worker.js`.
-- Assets-binding: `public/`.
-- D1-binding: `DB` mot `klarsprak-db`.
-- Auto-deploy: `.github/workflows/deploy.yml` vid push till `main`.
-- Observability är aktiverat i `wrangler.jsonc`.
-
-## Inlämning och granskning
-
-Besökare kan föreslå en term via `POST /api/submit`. Formuläret efterfrågar nu:
-
-- allmänspråklig betydelse,
-- myndighets-/juridisk användning,
-- källor och exempel,
-- rättsområde,
-- frivilligt namn/kommentar.
-
-Backend använder av bakåtkompatibilitet fortfarande databasfälten `foreslagen_vardagsbetydelse`, `foreslagen_juridisk_definition` och `foreslagen_exempel`. Fältnamnen är interna legacy-namn; den publika och administrativa presentationen följer den nya modellen.
-
-Förslag sparas i D1-tabellen `submissions` med status `pending`. Inget publiceras automatiskt. `POST /api/submit` är IP-baserat rate-begränsat till högst fem inlägg per rullande timme när `CF-Connecting-IP` finns.
-
-`/admin.html` visar granskningskön. Admin-API:t kräver `Authorization: Bearer <ADMIN_TOKEN>`. Token sparas endast i `sessionStorage` i admin-UI:t.
-
-## Cloudflare Access
-
-Worker-tokenen är det verifierade aktiva skyddet för admin-API:t. Cloudflare Access har tidigare varit tänkt som ett extra edge-lager, men får inte antas vara aktivt utan faktisk kontroll. Se `AGENTS.md`.
-
-## Domän
-
-`wrangler.jsonc` äger i nuläget inte custom-domain-routen eftersom deploytokenen saknar zonbehörighet för Workers Routes. Deployworkflowen verifierar därför efter deploy att `klarsprak.denied.se` fortfarande har DNS och att Cloudflare-edgen svarar.
-
-När tokenen får begränsad `Zone → Workers Routes → Edit` för `denied.se` bör custom domain flyttas tillbaka till deklarativ konfiguration i `wrangler.jsonc`.
-
-## Databas
-
-Migrationer ligger i `migrations/` och appliceras mot produktion med:
-
-```sh
-bunx wrangler d1 migrations apply klarsprak-db --remote
+```bash
+zip -qr - . | curl -s -X PUT \
+  -H "Authorization: Bearer $DUMP_TOKEN" \
+  --data-binary @- \
+  "https://dump.denied.se/$(basename "$PWD")"
 ```
+
+### `GET /<namn>`
+
+Hämtar den senaste uppladdade versionen för namnet. Svaret är `application/zip` och skickas som `<namn>.zip`, även om det interna R2-objektets timestamp varierar.
+
+```bash
+curl -sO -J -H "Authorization: Bearer $DUMP_TOKEN" \
+  "https://dump.denied.se/regelverk"
+```
+
+### `GET /<namn>?n=2`
+
+Hämtar den näst senaste versionen från samma stabila URL. `n=1` är senaste, `n=2` näst senaste och så vidare. Om den begärda versionen inte finns returneras `404`.
+
+Responsen innehåller även:
+
+- `x-dump-key` — den faktiska R2-nyckeln som serverades.
+- `x-dump-count` — antal versioner som hittades för namnet.
 
 ## Utveckling
 
-```sh
-bun install
-bunx wrangler dev
+```bash
+npm install
+npm test
+npm run dev
 ```
 
-## Deploy
+`DUMP_TOKEN` sätts som secret i Cloudflare-dashboarden. Lägg den inte i `wrangler.jsonc`, källkod eller andra filer i repot.
 
-```sh
-bunx wrangler deploy
-```
+## Drift
 
-Kräver `CLOUDFLARE_API_TOKEN` och `CLOUDFLARE_ACCOUNT_ID`.
+Cloudflare Workers tar emot ungefär maximalt 100 MB per request på den här typen av uppladdning. Större paket behöver en annan uppladdningsmodell, exempelvis direkt multipart-uppladdning till R2.
+
+R2-bucketen `dump` bör ha en lifecycle-regel som automatiskt raderar objekt äldre än 30 dagar. Då fungerar versionshistoriken som ett kortlivat arbetslager utan att gamla dumpar ackumuleras permanent.
+
+Deploy sköts av Cloudflare Workers Builds via GitHub-kopplingen. Repot ska därför inte ha någon GitHub Actions-workflow som kör `wrangler deploy`.
