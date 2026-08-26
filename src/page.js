@@ -6,7 +6,7 @@ export function homePage(stats, limits) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>dump.denied.se</title>
+  <title>dumpen.denied.se</title>
   <style>
     :root{--bg:#050505;--panel:#09090b;--line:#252529;--text:#f4f4f5;--muted:#a1a1aa;--green:#6ee71e;--green2:#42b80f;--purple:#a66cff;--danger:#ff6b6b}
     *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -15%,#111 0,#050505 36%,#030303 100%);color:var(--text);font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
@@ -18,7 +18,7 @@ export function homePage(stats, limits) {
 </head>
 <body><main>
   <header>
-    <h1>dump.<span>denied</span>.se</h1>
+    <h1>dumpen.<span>denied</span>.se</h1>
     <p class="lead">Enkel och tillfällig filöverföring via HTTP.<br>Ladda upp en ZIP-fil med <span class="accent">PUT</span>. Hämta senaste versionen med <span class="accent">GET</span>.</p>
   </header>
 
@@ -27,10 +27,10 @@ export function homePage(stats, limits) {
     <p class="lead" style="margin-bottom:20px">Ersätt <span class="accent">&lt;namn&gt;</span> med valfritt namn. Uppladdningen sparas versionshanterad som ZIP.</p>
     <div class="grid">
       <div><div class="label">Ladda upp (kräver token)</div><pre class="code">zip -qr - . | curl -s -X PUT \\
-  -H "Authorization: Bearer $DUMP_TOKEN" \\
+  -H "Authorization: Bearer $DUMPEN_TOKEN" \\
   --data-binary @- \\
-  "https://dump.denied.se/$(basename "$PWD")"</pre></div>
-      <div><div class="label">Hämta senaste (publikt)</div><pre class="code">wget --content-disposition https://dump.denied.se/namn</pre><div class="label" style="margin-top:13px">Hämta tidigare version</div><pre class="code">wget --content-disposition "https://dump.denied.se/namn?n=2"</pre></div>
+  "https://dumpen.denied.se/$(basename "$PWD")"</pre></div>
+      <div><div class="label">Hämta senaste (publikt)</div><pre class="code">wget --content-disposition https://dumpen.denied.se/namn</pre><div class="label" style="margin-top:13px">Hämta tidigare version</div><pre class="code">wget --content-disposition "https://dumpen.denied.se/namn?n=2"</pre></div>
     </div>
     <div class="notice">ⓘ Token krävs endast vid uppladdning (<span class="accent">PUT</span>). Nedladdning (<span class="accent">GET</span>) är öppen.</div>
   </section>
@@ -56,7 +56,7 @@ export function homePage(stats, limits) {
       <div id="objects" class="objects"><div class="objects-head"><span>Objekt i bucketen <span id="badge" class="badge"></span></span><button id="logout" class="logout" type="button">Logga ut</button></div><div class="table-wrap"><table><thead><tr><th>Namn</th><th>Storlek</th><th>Versioner</th><th>Äldsta version</th><th>Senast uppdaterad</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div>
     </div>
   </section>
-  <footer>dump.denied.se är ett tillfälligt fil-dump-ställe.<br>Inget garanteras. Använd på egen risk.</footer>
+  <footer>dumpen.denied.se är ett tillfälligt fil-dump-ställe.<br>Inget garanteras. Använd på egen risk.</footer>
 </main>
 <script>
 const cfg=${data},stats=cfg.stats,limits=cfg.limits;
