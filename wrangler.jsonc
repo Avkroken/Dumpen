@@ -1,14 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "dump",
+  "name": "dumpen",
   "main": "src/index.js",
   "compatibility_date": "2026-08-26",
   "account_id": "b74f8c0c6a92f3006483840cf27372fd",
   "observability": { "enabled": true },
   "r2_buckets": [
-    { "binding": "DUMP", "bucket_name": "dump" }
+    { "binding": "DUMPEN", "bucket_name": "dumpen" }
   ],
   "routes": [
-    { "pattern": "dump.denied.se", "custom_domain": true }
+    { "pattern": "dumpen.denied.se", "custom_domain": true }
   ]
 }
