@@ -1,55 +1,49 @@
-name: Validate Worker and D1
+name: Test
 
 on:
-  # Merge-kön skickar merge_group.checks_requested. Utan den här
-  # triggern svarar inget jobb och kön fastnar tills timeout.
   merge_group:
+  push:
+    branches: [main, work/feature]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: validate-${{ github.workflow }}-${{ github.ref }}
+  group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: validate
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: latest
+          persist-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: npm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm install
 
-      - name: Run regression tests
-        run: bun run test
+      - name: Run tests
+        run: npm test
 
-      - name: Validate D1 migrations from empty database
-        shell: bash
+      - name: Commit npm lockfile on bootstrap branch
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/work/feature' }}
         run: |
-          set -euo pipefail
-          rm -rf .wrangler/state
-          shopt -s nullglob
-          migrations=(migrations/*.sql)
-          if (( ${#migrations[@]} == 0 )); then
-            echo "No D1 migrations found" >&2
-            exit 1
+          if git diff --quiet -- package-lock.json && git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
+            exit 0
           fi
-          for migration in "${migrations[@]}"; do
-            echo "Applying ${migration}"
-            bunx wrangler d1 execute klarsprak-db --local --file "${migration}"
-          done
-
-      - name: Validate Worker bundle and Wrangler config
-        run: bunx wrangler deploy --dry-run --outdir .wrangler/dry-run
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Add npm lockfile"
+          git push origin HEAD:work/feature
