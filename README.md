@@ -1,78 +1,45 @@
-# klarsprak
+# dump
 
-Prototyp-webbplats som jämför **allmänspråklig betydelse** med **myndighets-/juridisk användning** av samma ord och uttryck. Syftet är att synliggöra när offentliga institutioner använder vanliga svenska ord som tekniska termer, bevisnivåer eller beslutströsklar.
-
-Live: **klarsprak.denied.se**
-
-## Innehållsmodell
-
-Varje publicerad post ska ha fyra delar:
-
-1. **Ordbokens betydelse** — en kort parafras av en redovisad språkkälla, i första hand Svenska Akademiens ordböcker eller annan etablerad källa.
-2. **Institutionens användning** — en kort parafras av lag, förarbete, domstol eller myndighet.
-3. **Skillnaden** — endast det som faktiskt kan härledas ur de två källorna.
-4. **Källor** — minst en språkkälla och en institutionell/rättslig källa som besökaren kan kontrollera.
-
-Den tidigare modellen med fältet **"vad människor tror"** används inte längre på den publika sidan. Sådana påståenden kräver empiriskt underlag om människors faktiska uppfattningar och ska inte genereras av AI.
+`dump` är ett arbetsrepo/sandbox i Avkroken-organisationen. Repot skapades från en kopia av `klarsprak` och innehåller därför fortfarande klarsprak-applikationens frontend, Worker-kod, D1-migrationer och konfiguration som utgångsmaterial.
 
 ## Status
 
-**Opublicerat/pilot.** De fem poster som visas på startsidan har explicita källhänvisningar men är fortfarande inte juridiskt sakkontrollerade. Äldre AI-genererade poster har tagits bort från den publika listan tills de kan byggas om enligt modellen ovan.
+**Inte produktionskopplat.** Automatisk deploy är avvecklad i detta repo. `dump` ska inte skriva till eller deploya över `klarsprak`, `klarsprak-db` eller `klarsprak.denied.se`.
 
-## Teknik
+Det innebär att befintliga klarsprak-referenser i applikationskoden är arv från källkopian, inte en deklaration om att `dump` äger klarsprak-miljön.
 
-- Frontend: statiska HTML-filer i `public/`, inline CSS+JS, ingen build-process.
-- Backend: Cloudflare Worker i `src/worker.js`.
-- Assets-binding: `public/`.
-- D1-binding: `DB` mot `klarsprak-db`.
-- Auto-deploy: `.github/workflows/deploy.yml` vid push till `main`.
-- Observability är aktiverat i `wrangler.jsonc`.
+## Nuvarande struktur
 
-## Inlämning och granskning
+- `public/` — statisk frontend från den importerade prototypen.
+- `src/` — Cloudflare Worker-kod.
+- `migrations/` — D1-migrationer från källkopian.
+- `docs/` — projektdokumentation.
+- `.github/workflows/` — CI, dependency/security-kontroller och branch-pool automation.
+- `AGENTS.md` / `SKILLS.md` — instruktioner för automatiserade kodagenter.
 
-Besökare kan föreslå en term via `POST /api/submit`. Formuläret efterfrågar nu:
+## Security alerts
 
-- allmänspråklig betydelse,
-- myndighets-/juridisk användning,
-- källor och exempel,
-- rättsområde,
-- frivilligt namn/kommentar.
+Det tidigare snapshot-/loggflödet är avvecklat. Security alerts hanteras i stället av `.github/workflows/security-alert-issues.yml`.
 
-Backend använder av bakåtkompatibilitet fortfarande databasfälten `foreslagen_vardagsbetydelse`, `foreslagen_juridisk_definition` och `foreslagen_exempel`. Fältnamnen är interna legacy-namn; den publika och administrativa presentationen följer den nya modellen.
+Workflowet skapar ett GitHub Issue per unik alert för:
 
-Förslag sparas i D1-tabellen `submissions` med status `pending`. Inget publiceras automatiskt. `POST /api/submit` är IP-baserat rate-begränsat till högst fem inlägg per rullande timme när `CF-Connecting-IP` finns.
+- Code Scanning med severity **Medium, High eller Critical**,
+- Dependabot vulnerabilities med severity **Medium, High eller Critical**,
+- Dependabot malware-alerts oavsett vanlig severityklassning.
 
-`/admin.html` visar granskningskön. Admin-API:t kräver `Authorization: Bearer <ADMIN_TOKEN>`. Token sparas endast i `sessionStorage` i admin-UI:t.
+Dolda alertmarkörer i Issue-body används för deduplicering.
 
-## Cloudflare Access
+## Lokal utveckling
 
-Worker-tokenen är det verifierade aktiva skyddet för admin-API:t. Cloudflare Access har tidigare varit tänkt som ett extra edge-lager, men får inte antas vara aktivt utan faktisk kontroll. Se `AGENTS.md`.
-
-## Domän
-
-`wrangler.jsonc` äger i nuläget inte custom-domain-routen eftersom deploytokenen saknar zonbehörighet för Workers Routes. Deployworkflowen verifierar därför efter deploy att `klarsprak.denied.se` fortfarande har DNS och att Cloudflare-edgen svarar.
-
-När tokenen får begränsad `Zone → Workers Routes → Edit` för `denied.se` bör custom domain flyttas tillbaka till deklarativ konfiguration i `wrangler.jsonc`.
-
-## Databas
-
-Migrationer ligger i `migrations/` och appliceras mot produktion med:
-
-```sh
-bunx wrangler d1 migrations apply klarsprak-db --remote
-```
-
-## Utveckling
+Befintlig kod kan köras lokalt som en kopia av klarsprak-prototypen:
 
 ```sh
 bun install
 bunx wrangler dev
 ```
 
+Kontrollera `wrangler.jsonc` innan någon extern miljö används. Den innehåller fortfarande historiska klarsprak-bindings och ska inte användas för produktion från `dump`.
+
 ## Deploy
 
-```sh
-bunx wrangler deploy
-```
-
-Kräver `CLOUDFLARE_API_TOKEN` och `CLOUDFLARE_ACCOUNT_ID`.
+Automatisk deploy är medvetet borttagen tills `dump` har en egen uttrycklig Worker-, databas- och domänkonfiguration. Återinför inte deploy genom att återanvända klarsprak-secrets eller klarsprak-resurser.
