@@ -1,45 +1,58 @@
 # dump
 
-`dump` är ett arbetsrepo/sandbox i Avkroken-organisationen. Repot skapades från en kopia av `klarsprak` och innehåller därför fortfarande klarsprak-applikationens frontend, Worker-kod, D1-migrationer och konfiguration som utgångsmaterial.
+`dump` är en liten Cloudflare Worker för versionshanterade ZIP-dumpar i R2.
 
-## Status
+Varje uppladdning lagras som ett nytt objekt under `<namn>/<timestamp>.zip`, men nedladdningsadressen ändras aldrig. En hämtning av `/regelverk` ger därför alltid den senaste uppladdade versionen av `regelverk` utan att klienten behöver känna till filnamn eller versionsnummer.
 
-**Inte produktionskopplat.** Automatisk deploy är avvecklad i detta repo. `dump` ska inte skriva till eller deploya över `klarsprak`, `klarsprak-db` eller `klarsprak.denied.se`.
+Alla anrop kräver `Authorization: Bearer $DUMP_TOKEN`. `DUMP_TOKEN` är en Cloudflare-secret och ska aldrig sparas i repot.
 
-Det innebär att befintliga klarsprak-referenser i applikationskoden är arv från källkopian, inte en deklaration om att `dump` äger klarsprak-miljön.
+## API
 
-## Nuvarande struktur
+### `PUT /<namn>`
 
-- `public/` — statisk frontend från den importerade prototypen.
-- `src/` — Cloudflare Worker-kod.
-- `migrations/` — D1-migrationer från källkopian.
-- `docs/` — projektdokumentation.
-- `.github/workflows/` — CI, dependency/security-kontroller och branch-pool automation.
-- `AGENTS.md` / `SKILLS.md` — instruktioner för automatiserade kodagenter.
+Laddar upp request body till R2 som en ny ZIP-version. Workern skapar nyckeln `<namn>/<epoch-millis>.zip` och returnerar nyckeln med status `201`.
 
-## Security alerts
+Exempel från den katalog som ska packas:
 
-Det tidigare snapshot-/loggflödet är avvecklat. Security alerts hanteras i stället av `.github/workflows/security-alert-issues.yml`.
-
-Workflowet skapar ett GitHub Issue per unik alert för:
-
-- Code Scanning med severity **Medium, High eller Critical**,
-- Dependabot vulnerabilities med severity **Medium, High eller Critical**,
-- Dependabot malware-alerts oavsett vanlig severityklassning.
-
-Dolda alertmarkörer i Issue-body används för deduplicering.
-
-## Lokal utveckling
-
-Befintlig kod kan köras lokalt som en kopia av klarsprak-prototypen:
-
-```sh
-bun install
-bunx wrangler dev
+```bash
+zip -qr - . | curl -s -X PUT \
+  -H "Authorization: Bearer $DUMP_TOKEN" \
+  --data-binary @- \
+  "https://dump.denied.se/$(basename "$PWD")"
 ```
 
-Kontrollera `wrangler.jsonc` innan någon extern miljö används. Den innehåller fortfarande historiska klarsprak-bindings och ska inte användas för produktion från `dump`.
+### `GET /<namn>`
 
-## Deploy
+Hämtar den senaste uppladdade versionen för namnet. Svaret är `application/zip` och skickas som `<namn>.zip`, även om det interna R2-objektets timestamp varierar.
 
-Automatisk deploy är medvetet borttagen tills `dump` har en egen uttrycklig Worker-, databas- och domänkonfiguration. Återinför inte deploy genom att återanvända klarsprak-secrets eller klarsprak-resurser.
+```bash
+curl -sO -J -H "Authorization: Bearer $DUMP_TOKEN" \
+  "https://dump.denied.se/regelverk"
+```
+
+### `GET /<namn>?n=2`
+
+Hämtar den näst senaste versionen. `n=1` är senaste, `n=2` näst senaste och så vidare. Om den begärda versionen inte finns returneras `404`.
+
+Responsen innehåller även:
+
+- `x-dump-key` — den faktiska R2-nyckeln som serverades.
+- `x-dump-count` — antal versioner som hittades för namnet.
+
+## Utveckling
+
+```bash
+npm install
+npm test
+npm run dev
+```
+
+`DUMP_TOKEN` sätts som secret i Cloudflare-dashboarden. Lägg den inte i `wrangler.jsonc`, källkod eller andra filer i repot.
+
+## Drift
+
+Cloudflare Workers tar emot ungefär maximalt 100 MB per request på den här typen av uppladdning. Större paket behöver en annan uppladdningsmodell, exempelvis direkt multipart-uppladdning till R2.
+
+R2-bucketen `dump` bör ha en lifecycle-regel som automatiskt raderar objekt äldre än 30 dagar. Då fungerar versionshistoriken som ett kortlivat arbetslager utan att gamla dumpar ackumuleras permanent.
+
+Deploy sköts av Cloudflare Workers Builds via GitHub-kopplingen. Repot ska därför inte ha någon GitHub Actions-workflow som kör `wrangler deploy`.
