@@ -1,0 +1,58 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "klarsprak",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  // INGEN "routes" här, och det är ett medvetet val med en obehaglig
+  // baksida — läs hela stycket innan du lägger tillbaka den.
+  //
+  // Domänen BORDE ägas av den här filen. En custom domain som bara
+  // konfigurerats för hand återskapas inte av `wrangler deploy`, och
+  // försvinner den går sajten ner utan att något i repot ändrats. Exakt
+  // det hände 2026-08-17: workern var deployad och frisk, men
+  // klarsprak.denied.se saknade DNS-post helt (Cloudflare svarade NODATA).
+  //
+  // Men API-token KLARSPRAK har bara "Account → Workers Scripts → Edit".
+  // Varje routeoperation går mot zonens API, och den svarar:
+  //
+  //   /zones/9b017d0f…/workers/routes failed. Authentication error [code: 10000]
+  //
+  // Med en routes-post blev därför VARJE deploy röd — workern laddades upp
+  // felfritt ("Uploaded klarsprak"), men jobbet föll på sista steget. En
+  // deploy som alltid är röd är värre än ingen kontroll alls: den lär folk
+  // att ignorera rött, och då syns inte nästa riktiga fel heller.
+  //
+  // Skyddet ligger i stället i deploy.yml. Det verifierar att domänen har
+  // DNS och att Cloudflare-edge svarar på HTTPS; 403 från botskydd accepteras
+  // medan uteblivet svar och 5xx gör deployen röd.
+  //
+  // NÄR tokenen fått "Zone → Workers Routes → Edit" på denied.se: lägg
+  // tillbaka blocket nedan. Då äger repot både routen och DNS-posten, och
+  // IDN-aliaset går att lägga till på samma gång. Redirect-koden för det
+  // ligger redan i worker.js och är verkningslös tills dess.
+  //
+  //   "routes": [
+  //     { "pattern": "klarsprak.denied.se", "custom_domain": true },
+  //     { "pattern": "xn--klarsprk-g0a.denied.se", "custom_domain": true }
+  //   ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    // Static Assets är annars asset-first. Utan detta kan t.ex. / och
+    // /varfor.html serveras direkt utan att worker.js körs, vilket skulle
+    // kringgå host-redirecten för IDN-aliaset när den custom domain-routen
+    // aktiveras. Worker-koden skickar sedan vanliga anrop vidare till ASSETS.
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "klarsprak-db",
+      "database_id": "a8117d9d-a65d-430d-a8a2-9b4ef3fd9e2f"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
