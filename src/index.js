@@ -25,23 +25,16 @@ function constantTimeEqual(a, b) {
   return diff === 0;
 }
 
-function adminCredentials(env) {
-  const user = env.DUMP_ADMIN_USER ?? env.DUMP_ADMIN_USERNAME ?? env.ADMIN_USER ?? env.ADMIN_USERNAME;
-  const password = env.DUMP_ADMIN_PASSWORD ?? env.ADMIN_PASSWORD;
-  return { user, password };
-}
-
 function adminAuthorized(req, env) {
-  const { user, password } = adminCredentials(env);
-  if (!user || !password) return null;
+  if (!env.DUMP_ADMIN_USER || !env.DUMP_ADMIN_PASSWORD) return null;
   const auth = req.headers.get("authorization") || "";
   if (!auth.startsWith("Basic ")) return false;
   try {
     const decoded = atob(auth.slice(6));
     const separator = decoded.indexOf(":");
     if (separator < 0) return false;
-    return constantTimeEqual(decoded.slice(0, separator), user)
-      && constantTimeEqual(decoded.slice(separator + 1), password);
+    return constantTimeEqual(decoded.slice(0, separator), env.DUMP_ADMIN_USER)
+      && constantTimeEqual(decoded.slice(separator + 1), env.DUMP_ADMIN_PASSWORD);
   } catch {
     return false;
   }
