@@ -38,7 +38,7 @@ permissions:
   contents: read
 
 env:
-  SLOTS: "work/feature work/fix work/chore"
+  SLOTS: "work/feature work/fix work/chore docs/content"
 
 jobs:
   sync:
