@@ -25,6 +25,13 @@ function constantTimeEqual(a, b) {
   return diff === 0;
 }
 
+function uploadAuthorized(req, token) {
+  if (!token) return null;
+  const auth = req.headers.get("authorization") || "";
+  if (!auth.startsWith("Bearer ")) return false;
+  return constantTimeEqual(auth.slice(7), token);
+}
+
 function adminAuthorized(req, env) {
   if (!env.DUMPEN_ADMIN_USER || !env.DUMPEN_ADMIN_PASSWORD) return null;
   const auth = req.headers.get("authorization") || "";
@@ -115,8 +122,9 @@ export default {
     }
 
     if (req.method === "PUT") {
-      if (req.headers.get("authorization") !== `Bearer ${env.DUMPEN_TOKEN}`)
-        return new Response("nope\n", { status: 401 });
+      const authorized = uploadAuthorized(req, env.DUMPEN_TOKEN);
+      if (authorized === null) return new Response("upload token not configured\n", { status: 503 });
+      if (!authorized) return new Response("nope\n", { status: 401 });
 
       const declaredLength = Number(req.headers.get("content-length"));
       if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES)

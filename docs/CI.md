@@ -1,8 +1,8 @@
 # CI och deploy
 
-GitHub Actions verifierar `dumpen` med Node/npm. Det ordinarie testjobbet kör `npm ci` och `npm test` på pushes till `main` och pull requests mot `main`.
+GitHub Actions verifierar `dumpen` med Node/npm. Det required testjobbet kör `npm ci` och `npm test` på pushes till `main` och pull requests mot `main`.
 
-Repot använder inte merge queue. `CI / required` är den stabila required checken för rulesetet och workflowen använder därför inte `merge_group`.
+Repot använder inte merge queue. Live-rulesetet kräver status context `test`; workflowen producerar därför ingen separat aggregator-wrapper och använder inte `merge_group`.
 
 Actions är pinnade till full commit-SHA i samma stil som övriga repos i organisationen.
 

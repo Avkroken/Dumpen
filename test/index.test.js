@@ -68,6 +68,14 @@ test("fel token på PUT ger 401", async () => {
   assert.equal(response.status, 401);
 });
 
+test("PUT failar stängt om upload-token saknas", async () => {
+  const e = env();
+  delete e.DUMPEN_TOKEN;
+  const response = await worker.fetch(request("/regelverk", { method: "PUT", token: "undefined", body: "zip" }), e);
+  assert.equal(response.status, 503);
+  assert.equal(await response.text(), "upload token not configured\n");
+});
+
 test("PUT skapar timestampad nyckel", async () => {
   const r2 = fakeR2();
   const originalNow = Date.now;
