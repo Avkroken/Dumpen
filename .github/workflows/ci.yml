@@ -45,14 +45,3 @@ jobs:
 
       - name: Run tests
         run: npm test
-
-  required:
-    name: CI / required
-    if: ${{ always() }}
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Kontrollera required CI
-        env:
-          TEST_RESULT: ${{ needs.test.result }}
-        run: test "$TEST_RESULT" = "success"

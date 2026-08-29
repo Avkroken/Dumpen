@@ -30,8 +30,6 @@ För `main` gäller för närvarande:
 - Copilot Code Review körs vid push till PR-grenen
 - squash är enda tillåtna merge-metod
 
-`CI / required` produceras också av CI-workflowen men är inte required context i det nuvarande live-rulesetet. PR #11 avsåg den som stabil ruleset-target; dokumentation får inte låtsas att den avsikten redan är live enforcement.
-
 Alla review-kommentarer och trådar ska läsas och utvärderas. Relevanta findings åtgärdas i samma PR. En tråd markeras resolved först när eventuell nödvändig fix är pushad och verifierad.
 
 Efter varje ny commit ska relevant CI och review-status kontrolleras igen. När `test` är grön och alla relevanta review-trådar är resolved ska den redan armerade auto-merge-funktionen föra PR:n till `main`.
@@ -40,19 +38,20 @@ Om auto-merge inte sker ska den konkreta blockeraren i live-ruleset, review-stat
 
 ## Review-signal
 
-Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera inte rena stavnings-, grammatik-, interpunktions-, wording- eller stilfel i mänskligt läsbar prosa, inklusive dokumentation, Markdown, README, kodkommentarer och docstrings. Rapportera däremot textfel som materiellt kan ändra teknisk betydelse, säkerhet, korrekthet, användarbeteende eller bokstavliga instruktioner samt typos i maskin- eller semantikbärande innehåll såsom identifierare, strängkonstanter, paths, config keys, environment-variabler, API-fält, kommandon, flags, selectors, protokoll- och enumvärden.
+Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera inte rena stavnings-, grammatik-, interpunktions-, wording- eller stilfel i mänskligt läsbar prosa. Rapportera däremot textfel som materiellt kan ändra teknisk betydelse, säkerhet, korrekthet, användarbeteende eller bokstavliga instruktioner samt typos i maskin- eller semantikbärande innehåll såsom identifierare, paths, config keys, environment-variabler, API-fält, kommandon, flags, selectors, protokoll- och enumvärden.
 
 ## Säkerhet och runtime
 
 - Validera opålitlig input vid server-side boundaries.
-- Adminbehörighet ska verifieras server-side; credentials får inte exponeras till frontend eller loggar.
+- Adminbehörighet och upload-token ska verifieras server-side och faila stängt om motsvarande secret saknas.
+- Credentials får inte exponeras till frontend eller loggar.
 - Bevara befintliga storleks-, auth- och versionsregler om inte uppgiften uttryckligen kräver ändring.
 - GitHub Actions ska pinnas till full commit-SHA när praktiskt möjligt.
 - Föredra minsta nödvändiga behörighet och befintliga GitHub/Cloudflare-mekanismer framför nya wrappers.
 
 ## GitHub Actions
 
-- `.github/workflows/ci.yml` producerar required context `test` och kör `npm ci` följt av `npm test`.
+- `.github/workflows/ci.yml` producerar live-required context `test` och kör `npm ci` följt av `npm test`.
 - Required `test` blockerar alla PR:er som fortfarande innehåller `.github/codex-dispatch/issue-*.md`; en remediation-seed får aldrig nå `main`.
 - `.github/workflows/osv-scanner.yml` är kompletterande säkerhetsverifiering och är inte required context i nuvarande ruleset.
 - `.github/workflows/codex-issue-remediation.yml` skapar en körningsunik remediation-branch, öppnar PR och armerar auto-merge direkt.
