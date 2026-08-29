@@ -1,34 +1,74 @@
-# dumpen — AI Agent Guide
+# AGENTS.md
+
+Den här filen är repositoryts auktoritativa arbetsinstruktion. Live GitHub-konfiguration är verkställande sanning när dokumentation och faktisk enforcement skiljer sig.
+
+## Repository
 
 `dumpen` är en Cloudflare Worker som lagrar versionshanterade ZIP-filer i R2 och serverar senaste eller vald tidigare version från en stabil URL.
 
-## Funktion
-
 - Worker-entrypoint: `src/index.js`.
 - Worker-namn: `dumpen`.
-- Publik domän: `dumpen.denied.se`.
-- R2-binding: `DUMPEN` mot bucketen `dumpen`.
-- Runtime-secrets: `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` och `DUMPEN_ADMIN_PASSWORD`; de får aldrig skrivas till repo-filer.
-- `PUT /<namn>` skapar `<namn>/<timestamp>.zip`.
-- `GET /<namn>` hämtar senaste versionen; `?n=2` hämtar näst senaste.
-- Cloudflare Workers Builds sköter deploy från GitHub. Lägg inte till en GitHub Actions-deploy och kör inte `wrangler deploy` som del av repoautomation.
+- Cloudflare Workers Builds sköter deploy från GitHub; lägg inte till GitHub Actions-deploy och kör inte `wrangler deploy` som repoautomation.
+- Runtime-secrets inkluderar `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` och `DUMPEN_ADMIN_PASSWORD`; de får aldrig skrivas till repositoryfiler eller loggar.
 
-## GitHub-arbetsflöde
+## Brancher och pull requests
 
-Arbete sker via tillfälliga arbetsgrenar och pull requests till `main`. Arbetsgrenar får använda repo- eller agentvalda namn som `claude/*`, `codex/*`, `feature/*`, `fix/*` eller motsvarande; de återanvändbara `work/feature`, `work/fix` och `work/chore` får fortfarande användas men är inte obligatoriska.
+- Pusha aldrig direkt till `main`.
+- Använd en kortlivad branch och öppna en ready PR till `main`.
+- **Aktivera auto-merge omedelbart när PR:n skapats**, även medan CI eller review pågår.
+- Använd inte direkt merge om det inte uttryckligen begärts.
+- Live-rulesetet tillåter för närvarande endast squash merge.
+- Repositoryt använder inte merge queue och har ingen obligatorisk återanvändbar branchpool.
+- Codex-remediation använder körningsunika branches under `automation/codex-issue/`.
 
-Aktivera auto-merge omedelbart när en ready PR till `main` öppnas. Required CI och olösta review-trådar är merge-gates. Utvärdera alla review-kommentarer och fixa relevanta fynd innan tråden markeras löst. Efter varje ny commit ska required checks och review-trådar kontrolleras igen; merge får inte ske medan required CI är röd/pågående eller en relevant review-tråd är olöst. Squash merge är den enda tillåtna merge-metoden.
+## Merge-gates
 
-`.github/workflows/pr-watchdog.yml` bevakar alla lokala branches utom `main`, merge-köns `gh-readonly-queue/*`, den interna permanenta state-branchen `automation/pr-watchdog-state` och uttryckliga permanenta undantag. När en branch med unika commits först observeras utan öppen PR sparas `firstSeen` beständigt på state-branchen. Perioden fortsätter även om HEAD ändras och nollställs först när en öppen PR finns eller branchen inte längre har unika commits mot `main`. Efter mer än 60 minuter skapas en ready PR till `main` och squash auto-merge armeras. Exakt samma HEAD öppnas inte på nytt om den redan har behandlats i en stängd PR. Watchdoggen avgör inte om arbetet är önskvärt eller mergebart; CI, review och merge-gates gör det.
+För `main` gäller för närvarande:
 
-`.github/workflows/sync-pool.yml` får fortsätta synka de uttryckliga återanvändbara `work/*`-slotsen men får aldrig resetta godtyckliga agent- eller arbetsgrenar.
+- required status check: `test`
+- olösta review-trådar blockerar merge
+- Copilot Code Review körs vid push till PR-grenen
+- squash är enda tillåtna merge-metod
 
-CI ska använda npm och köra `npm ci` följt av `npm test`. Actions ska vara pinnade till full commit-SHA.
+`CI / required` produceras också av CI-workflowen men är inte required context i det nuvarande live-rulesetet. PR #11 avsåg den som stabil ruleset-target; dokumentation får inte låtsas att den avsikten redan är live enforcement.
 
-Security alerts representeras som GitHub Issues via `.github/workflows/security-alert-issues.yml`. Code Scanning och vanliga Dependabot-vulnerabilities rapporteras från Medium och uppåt; malware rapporteras alltid.
+Alla review-kommentarer och trådar ska läsas och utvärderas. Relevanta findings åtgärdas i samma PR. En tråd markeras resolved först när eventuell nödvändig fix är pushad och verifierad.
 
-Skicka aldrig direkt till `main` och kringgå aldrig branch protection, rulesets, required checks, review resolution eller merge queue.
+Efter varje ny commit ska relevant CI och review-status kontrolleras igen. När `test` är grön och alla relevanta review-trådar är resolved ska den redan armerade auto-merge-funktionen föra PR:n till `main`.
+
+Om auto-merge inte sker ska den konkreta blockeraren i live-ruleset, review-state eller repositoryinställning identifieras. Kringgå aldrig repositoryskydd.
+
+## Review-signal
+
+Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera inte rena stavnings-, grammatik-, interpunktions-, wording- eller stilfel i mänskligt läsbar prosa, inklusive dokumentation, Markdown, README, kodkommentarer och docstrings. Rapportera däremot textfel som materiellt kan ändra teknisk betydelse, säkerhet, korrekthet, användarbeteende eller bokstavliga instruktioner samt typos i maskin- eller semantikbärande innehåll såsom identifierare, strängkonstanter, paths, config keys, environment-variabler, API-fält, kommandon, flags, selectors, protokoll- och enumvärden.
+
+## Säkerhet och runtime
+
+- Validera opålitlig input vid server-side boundaries.
+- Adminbehörighet ska verifieras server-side; credentials får inte exponeras till frontend eller loggar.
+- Bevara befintliga storleks-, auth- och versionsregler om inte uppgiften uttryckligen kräver ändring.
+- GitHub Actions ska pinnas till full commit-SHA när praktiskt möjligt.
+- Föredra minsta nödvändiga behörighet och befintliga GitHub/Cloudflare-mekanismer framför nya wrappers.
+
+## GitHub Actions
+
+- `.github/workflows/ci.yml` producerar required context `test` och kör `npm ci` följt av `npm test`.
+- Required `test` blockerar alla PR:er som fortfarande innehåller `.github/codex-dispatch/issue-*.md`; en remediation-seed får aldrig nå `main`.
+- `.github/workflows/osv-scanner.yml` är kompletterande säkerhetsverifiering och är inte required context i nuvarande ruleset.
+- `.github/workflows/codex-issue-remediation.yml` skapar en körningsunik remediation-branch, öppnar PR och armerar auto-merge direkt.
+- `.github/workflows/auto-fix-review.yml` får begära Codex-fix för uttryckligen betrodd review-feedback men får inte lösa review-tråden åt implementationen.
+- Security alerts hanteras centralt av organisationens Skvallerbyttan-flöde; repositoryt ska inte ha en separat schemalagd Code Scanning-poller.
+
+## Verifiering
+
+Granska hela diffen mot `main` före PR. Kör `npm ci` och `npm test` eller verifiera motsvarande CI efter varje push. Kontrollera att inga secrets, credentials, debugrester eller oavsiktliga genererade filer har lagts till.
+
+När ändringen påverkar Cloudflare runtime, bindings, secrets, routes, R2 eller annan live-konfiguration ska den deployade konfigurationen verifieras efter ändringen.
 
 ## Svarsformat
 
 **[SKILLS.md](SKILLS.md) styr allt svarsformat. Läs den och följ den i varje svar.**
+
+## Definition of done
+
+En PR-baserad uppgift är klar först när implementationen är färdig, diffen självgranskad, all review-feedback utvärderad, required `test` är grön, relevanta review-trådar är resolved och auto-merge har mergat PR:n eller är armerad medan en verifierad extern gate fortfarande väntar.
