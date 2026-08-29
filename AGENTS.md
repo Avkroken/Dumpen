@@ -9,7 +9,7 @@ Den här filen är repositoryts auktoritativa arbetsinstruktion. Live GitHub-kon
 - Worker-entrypoint: `src/index.js`.
 - Worker-namn: `dumpen`.
 - Cloudflare Workers Builds sköter deploy från GitHub; lägg inte till GitHub Actions-deploy och kör inte `wrangler deploy` som repoautomation.
-- Runtime-secrets inkluderar `DUMPEN_TOKEN`, `DUMP_ADMIN_USER` och `DUMP_ADMIN_PASSWORD`; de får aldrig skrivas till repositoryfiler eller loggar.
+- Runtime-secrets inkluderar `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` och `DUMPEN_ADMIN_PASSWORD`; de får aldrig skrivas till repositoryfiler eller loggar.
 
 ## Brancher och pull requests
 
