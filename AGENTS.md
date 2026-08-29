@@ -13,6 +13,13 @@
 - `GET /<namn>` hämtar senaste versionen; `?n=2` hämtar näst senaste.
 - Cloudflare Workers Builds sköter deploy från GitHub. Lägg inte till en GitHub Actions-deploy och kör inte `wrangler deploy` som del av repoautomation.
 
+## Review signal
+
+- Rapportera inte stavning, grammatik, formulering, interpunktion eller prosastil i dokumentation, Markdown, README-filer, kodkommentarer, docstrings eller annan mänskligt läsbar prosa.
+- Undantag gäller endast när textfelet materiellt ändrar teknisk betydelse, säkerhet, korrekthet, användarbeteende eller en instruktion som måste följas bokstavligt.
+- Rapportera däremot typos i exekverbar eller semantiskt betydelsefull kod när de kan påverka beteende, exempelvis identifierare, strängkonstanter, paths, konfigurationsnycklar, API-fält, kommandon, selectors, protokollvärden och annan maskinläst text.
+- Prioritera funktionell korrekthet, säkerhet, tillförlitlighet, kompatibilitet, tester och underhållbarhet framför redaktionell puts.
+
 ## GitHub-arbetsflöde
 
 Arbete sker via tillfälliga arbetsgrenar och pull requests till `main`. Arbetsgrenar får använda repo- eller agentvalda namn som `claude/*`, `codex/*`, `feature/*`, `fix/*` eller motsvarande; de återanvändbara `work/feature`, `work/fix` och `work/chore` får fortfarande användas men är inte obligatoriska.
