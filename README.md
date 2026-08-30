@@ -67,4 +67,14 @@ npm test
 npm run dev
 ```
 
-Deploy sköts av Cloudflare Workers Builds via GitHub-kopplingen. Repot ska därför inte ha någon GitHub Actions-workflow som kör `wrangler deploy`.
+## Production deploy
+
+Cloudflare Workers Builds äger produktionsdeploy från `main`; GitHub Actions validerar men deployar inte produktion. Workers Builds ska använda repositoryts root directory och deploy command:
+
+```bash
+npm run deploy:production
+```
+
+Production-scriptet kräver `WORKERS_CI_BRANCH=main` och en giltig full `WORKERS_CI_COMMIT_SHA`, kör `wrangler deploy --strict`, märker deploymenten med Git-SHA och kräver därefter HTTP 200 från `https://dumpen.denied.se/`. Startsidan läser R2-statistik, så kontrollen verifierar Worker, custom domain och R2-binding tillsammans.
+
+Build watch paths ska omfatta Worker-koden, `wrangler.jsonc`, `package*.json` och `scripts/**`. Repot ska inte ha någon GitHub Actions-workflow som kör production `wrangler deploy`.
