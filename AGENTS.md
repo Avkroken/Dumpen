@@ -8,7 +8,7 @@ Den här filen är repositoryts auktoritativa arbetsinstruktion. Live GitHub-kon
 
 - Worker-entrypoint: `src/index.js`.
 - Worker-namn: `dumpen`.
-- Cloudflare Workers Builds sköter deploy från GitHub; lägg inte till GitHub Actions-deploy och kör inte `wrangler deploy` som repoautomation.
+- Cloudflare Workers Builds sköter deploy från GitHub; lägg inte till GitHub Actions-deploy och kör inte production `wrangler deploy` som repoautomation.
 - Runtime-secrets inkluderar `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` och `DUMPEN_ADMIN_PASSWORD`; de får aldrig skrivas till repositoryfiler eller loggar.
 
 ## Brancher och pull requests
@@ -49,14 +49,20 @@ Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera
 - GitHub Actions ska pinnas till full commit-SHA när praktiskt möjligt.
 - Föredra minsta nödvändiga behörighet och befintliga GitHub/Cloudflare-mekanismer framför nya wrappers.
 
-## GitHub Actions
+## GitHub Actions och Cloudflare
 
-- `.github/workflows/ci.yml` producerar live-required context `test` och kör `npm ci` följt av `npm test`.
+- `.github/workflows/ci.yml` producerar live-required context `test`, kör `npm ci`, `npm test` och Wrangler dry-run.
 - Required `test` blockerar alla PR:er som fortfarande innehåller `.github/codex-dispatch/issue-*.md`; en remediation-seed får aldrig nå `main`.
 - `.github/workflows/osv-scanner.yml` är kompletterande säkerhetsverifiering och är inte required context i nuvarande ruleset.
 - `.github/workflows/codex-issue-remediation.yml` skapar en körningsunik remediation-branch, öppnar PR och armerar auto-merge direkt.
 - `.github/workflows/auto-fix-review.yml` får begära Codex-fix för uttryckligen betrodd review-feedback men får inte lösa review-tråden åt implementationen.
 - Security alerts hanteras centralt av organisationens Skvallerbyttan-flöde; repositoryt ska inte ha en separat schemalagd Code Scanning-poller.
+- Cloudflare Workers Builds äger normal produktionsdeploy från `main`; GitHub Actions ska inte deploya produktion.
+- Workers Builds ska använda repository-rooten och `npm run deploy:production` som deploy command.
+- `scripts/deploy-production.mjs` failar stängt på fel Workers Builds-branch eller ogiltig build-SHA, deployar med `wrangler deploy --strict` och märker deploymenten med Git-SHA.
+- Efter deploy måste `https://dumpen.denied.se/` svara HTTP 200. Startsidan läser R2-statistik, så kontrollen verifierar Worker, route och R2-binding utan att skapa en separat health-endpoint.
+- Build watch paths ska omfatta relevant Worker-kod, Wrangler/package-konfiguration och `scripts/**`.
+- `wrangler.jsonc` är source of truth för Worker-bindings, route, observability och annan versionshanterad Worker-konfiguration.
 
 ## Verifiering
 
