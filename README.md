@@ -69,12 +69,20 @@ npm run dev
 
 ## Production deploy
 
-Cloudflare Workers Builds äger produktionsdeploy från `main`; GitHub Actions validerar men deployar inte produktion. Workers Builds ska använda repositoryts root directory och deploy command:
+Cloudflare Workers Builds äger produktionsdeploy från `main`; GitHub Actions validerar men deployar inte produktion. Production trigger ska använda:
+
+- Production branch: `main`
+- Root directory: `/`
+- Build command: tomt
+- Non-production branch builds: avstängt
+- Deploy command:
 
 ```bash
-npm run deploy:production
+npm run deploy && npm run verify:production
 ```
 
-Production-scriptet kräver `WORKERS_CI_BRANCH=main` och en giltig full `WORKERS_CI_COMMIT_SHA`, kör `wrangler deploy --strict`, märker deploymenten med Git-SHA och kräver därefter HTTP 200 från `https://dumpen.denied.se/`. Startsidan läser R2-statistik, så kontrollen verifierar Worker, custom domain och R2-binding tillsammans.
+`deploy` är direkt `wrangler deploy --strict`. `verify:production` gör därefter en separat applikationskontroll och kräver HTTP 200 från `https://dumpen.denied.se/`. Startsidan läser R2-statistik, så kontrollen verifierar Worker, custom domain och R2-binding tillsammans.
 
-Build watch paths ska omfatta Worker-koden, `wrangler.jsonc`, `package*.json` och `scripts/**`. Repot ska inte ha någon GitHub Actions-workflow som kör production `wrangler deploy`.
+Det finns ingen repo-lokal deployorkestrerare och ingen duplicerad Workers Builds branch/SHA-logik. Production branch, root directory, watch paths och kommandosekvens ägs av Cloudflare Workers Builds; `wrangler.jsonc` är source of truth för Worker-bindings, route och observability.
+
+Build watch paths ska vara `src/**`, `scripts/verify-production.mjs`, `wrangler.jsonc`, `package.json` och `package-lock.json`. Repot ska inte ha någon GitHub Actions-workflow som kör production `wrangler deploy`.
