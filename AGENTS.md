@@ -15,24 +15,33 @@ Den här filen är repositoryts auktoritativa arbetsinstruktion. Live GitHub-kon
 
 - Pusha aldrig direkt till `main`.
 - Använd en kortlivad branch och öppna en ready PR till `main`.
-- **Aktivera auto-merge omedelbart när PR:n skapats**, även medan CI eller review pågår.
+- Aktivera inte auto-merge förrän live-rulesetet är verifierat, required contexts för aktuell HEAD är identifierade, strict- och security-enforcement är verifierad, relevanta review-trådar är resolved och inga manuella rulesetåtgärder återstår.
+- Auto-merge får därefter armeras medan en legitim required CI/security-gate fortfarande kör, men får inte användas som ett test av om GitHub stoppar en osäker merge.
 - Använd inte direkt merge om det inte uttryckligen begärts.
-- Live-rulesetet tillåter för närvarande endast squash merge.
+- Live-rulesetet `Protect main` tillåter endast squash merge.
 - Repositoryt använder inte merge queue och har ingen obligatorisk återanvändbar branchpool.
 - Codex-remediation använder körningsunika branches under `automation/codex-issue/`.
 
 ## Merge-gates
 
-För `main` gäller för närvarande:
+För `main` gäller:
 
-- required status check: `test`
+- required status checks: `test` och `osv`
+- `strict_required_status_checks_policy: true`
+- Code Scanning merge protection för `CodeQL`: security alerts från medium och uppåt samt errors/warnings blockerar merge
 - olösta review-trådar blockerar merge
-- Copilot Code Review körs vid push till PR-grenen
+- generella approvals: 0; last-push-approval krävs inte
+- Copilot Code Review kör review-on-push men är rådgivande och är inte hard gate
+- CodeRabbit är best effort och är inte required status check; quota, rate limit eller utebliven review blockerar inte ensam merge
+- deletion och non-fast-forward/force push till `main` blockeras
+- inga bypass actors
 - squash är enda tillåtna merge-metod
 
-Alla review-kommentarer och trådar ska läsas och utvärderas. Relevanta findings åtgärdas i samma PR. En tråd markeras resolved först när eventuell nödvändig fix är pushad och verifierad.
+Alla review-kommentarer och trådar ska läsas och utvärderas. Relevanta findings från Copilot, CodeRabbit eller andra reviewers åtgärdas i samma PR. En tråd markeras resolved först när eventuell nödvändig fix är pushad och verifierad.
 
-Efter varje ny commit ska relevant CI och review-status kontrolleras igen. När `test` är grön och alla relevanta review-trådar är resolved ska den redan armerade auto-merge-funktionen föra PR:n till `main`.
+Efter varje ny commit ska relevant CI, Code Scanning och review-state kontrolleras på exakt den nya HEAD-SHA:n. `test` och `osv` måste produceras för den HEAD:en; äldre checkresultat får inte användas som bevis.
+
+När live-policy är verifierad, relevanta review-trådar är resolved och inga manuella gates återstår får auto-merge armeras. Merge får endast ske när required checks och Code Scanning för aktuell HEAD är godkända och PR:n uppfyller strict latest-main-policy.
 
 Om auto-merge inte sker ska den konkreta blockeraren i live-ruleset, review-state eller repositoryinställning identifieras. Kringgå aldrig repositoryskydd.
 
@@ -53,8 +62,10 @@ Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera
 
 - `.github/workflows/ci.yml` producerar live-required context `test`, kör `npm ci`, `npm test` och Wrangler dry-run.
 - Required `test` blockerar alla PR:er som fortfarande innehåller `.github/codex-dispatch/issue-*.md`; en remediation-seed får aldrig nå `main`.
-- `.github/workflows/osv-scanner.yml` är kompletterande säkerhetsverifiering och är inte required context i nuvarande ruleset.
-- `.github/workflows/codex-issue-remediation.yml` skapar en körningsunik remediation-branch, öppnar PR och armerar auto-merge direkt.
+- `.github/workflows/osv-scanner.yml` producerar live-required terminal context `osv`; den accepterar endast att den underliggande PR-skanningen slutar i `success`.
+- OSV:s PR-skanning kör fail-on-vulnerability och rapporterar även SARIF till Code Scanning.
+- GitHub Advanced Security producerar CodeQL-resultat och live-rulesetet verkställer Code Scanning-thresholds separat från required status checks.
+- `.github/workflows/codex-issue-remediation.yml` skapar en körningsunik remediation-branch och öppnar PR, men armerar inte auto-merge innan gates har verifierats.
 - `.github/workflows/auto-fix-review.yml` får begära Codex-fix för uttryckligen betrodd review-feedback men får inte lösa review-tråden åt implementationen.
 - Security alerts hanteras centralt av organisationens Skvallerbyttan-flöde; repositoryt ska inte ha en separat schemalagd Code Scanning-poller.
 - Cloudflare Workers Builds äger normal produktionsdeploy från `main`; GitHub Actions ska inte deploya produktion.
@@ -67,7 +78,7 @@ Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera
 
 ## Verifiering
 
-Granska hela diffen mot `main` före PR. Kör `npm ci` och `npm test` eller verifiera motsvarande CI efter varje push. Kontrollera att inga secrets, credentials, debugrester eller oavsiktliga genererade filer har lagts till.
+Granska hela diffen mot `main` före PR. Kör `npm ci` och `npm test` eller verifiera motsvarande CI efter varje push. Kontrollera `test`, `osv`, Code Scanning och review-state på exakt aktuell PR-HEAD. Kontrollera att inga secrets, credentials, debugrester eller oavsiktliga genererade filer har lagts till.
 
 När ändringen påverkar Cloudflare runtime, bindings, secrets, routes, R2 eller annan live-konfiguration ska den deployade konfigurationen verifieras efter ändringen. För produktionsändringar innebär det normalt en grön Workers Builds-run på den mergade `main`-SHA:n där strict deploy och produktionsverifiering har passerat.
 
@@ -77,4 +88,4 @@ När ändringen påverkar Cloudflare runtime, bindings, secrets, routes, R2 elle
 
 ## Definition of done
 
-En PR-baserad uppgift är klar först när implementationen är färdig, diffen självgranskad, all review-feedback utvärderad, required `test` är grön, relevanta review-trådar är resolved och auto-merge har mergat PR:n eller är armerad medan en verifierad extern gate fortfarande väntar.
+En PR-baserad uppgift är klar först när implementationen är färdig, diffen självgranskad, all review-feedback utvärderad, live-rulesetet matchar policyn, required `test` och `osv` är gröna på exakt final HEAD, Code Scanning merge protection är godkänd, relevanta review-trådar är resolved och PR:n har mergats via tillåten squash-policy eller auto-merge är armerad medan en verifierad legitim required gate fortfarande väntar.
