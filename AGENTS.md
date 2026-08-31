@@ -58,17 +58,18 @@ Prioritera funktionell och teknisk signal framför redaktionell puts. Rapportera
 - `.github/workflows/auto-fix-review.yml` får begära Codex-fix för uttryckligen betrodd review-feedback men får inte lösa review-tråden åt implementationen.
 - Security alerts hanteras centralt av organisationens Skvallerbyttan-flöde; repositoryt ska inte ha en separat schemalagd Code Scanning-poller.
 - Cloudflare Workers Builds äger normal produktionsdeploy från `main`; GitHub Actions ska inte deploya produktion.
-- Workers Builds ska använda repository-rooten och `npm run deploy:production` som deploy command.
-- `scripts/deploy-production.mjs` failar stängt på fel Workers Builds-branch eller ogiltig build-SHA, deployar med `wrangler deploy --strict` och märker deploymenten med Git-SHA.
-- Efter deploy måste `https://dumpen.denied.se/` svara HTTP 200. Startsidan läser R2-statistik, så kontrollen verifierar Worker, route och R2-binding utan att skapa en separat health-endpoint.
-- Build watch paths ska omfatta relevant Worker-kod, Wrangler/package-konfiguration och `scripts/**`.
+- Production trigger ska använda branch `main`, repository-root `/`, tomt build command och avstängda non-production branch builds.
+- Workers Builds deploy command ska vara `npm run deploy && npm run verify:production`.
+- `deploy` ska vara direkt `wrangler deploy --strict`. Skapa inte repo-lokala deploy-wrappers för branchkontroll, Git-SHA-metadata eller annan kontrollplanslogik som Workers Builds redan äger.
+- `scripts/verify-production.mjs` får endast verifiera att `https://dumpen.denied.se/` svarar HTTP 200 efter deploy. Startsidan läser R2-statistik, så kontrollen verifierar Worker, route och R2-binding utan en separat health-endpoint.
+- Build watch paths ska vara `src/**`, `scripts/verify-production.mjs`, `wrangler.jsonc`, `package.json` och `package-lock.json`.
 - `wrangler.jsonc` är source of truth för Worker-bindings, route, observability och annan versionshanterad Worker-konfiguration.
 
 ## Verifiering
 
 Granska hela diffen mot `main` före PR. Kör `npm ci` och `npm test` eller verifiera motsvarande CI efter varje push. Kontrollera att inga secrets, credentials, debugrester eller oavsiktliga genererade filer har lagts till.
 
-När ändringen påverkar Cloudflare runtime, bindings, secrets, routes, R2 eller annan live-konfiguration ska den deployade konfigurationen verifieras efter ändringen.
+När ändringen påverkar Cloudflare runtime, bindings, secrets, routes, R2 eller annan live-konfiguration ska den deployade konfigurationen verifieras efter ändringen. För produktionsändringar innebär det normalt en grön Workers Builds-run på den mergade `main`-SHA:n där strict deploy och produktionsverifiering har passerat.
 
 ## Svarsformat
 
