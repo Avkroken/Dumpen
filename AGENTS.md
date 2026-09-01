@@ -89,3 +89,13 @@ När ändringen påverkar Cloudflare runtime, bindings, secrets, routes, R2 elle
 ## Definition of done
 
 En PR-baserad uppgift är klar först när implementationen är färdig, diffen självgranskad, all review-feedback utvärderad, live-rulesetet matchar policyn, required `test` och `osv` är gröna på exakt final HEAD, Code Scanning merge protection är godkänd, relevanta review-trådar är resolved och PR:n har mergats via tillåten squash-policy eller auto-merge är armerad medan en verifierad legitim required gate fortfarande väntar.
+
+## PR-scope efter öppning
+
+Den här sektionen förtydligar tidigare formuleringar om att relevanta findings ska åtgärdas i samma PR.
+
+- När en PR har öppnats är dess avsedda scope, så som det beskrivs i PR:n, fryst. Fortsatta commits får endast slutföra eller korrigera det scopet.
+- Om CI, Code Scanning, tester eller review hittar ett fel som orsakas av PR:ns befintliga ändringar ska just det felet rättas på samma branch/PR. Det är en korrigering inom scope, inte ny scope.
+- Ny funktionalitet, opportunistiska refactors, städning eller separata förbättringar som upptäcks efter att PR:n öppnats ska få en ny kortlivad branch och en ny PR från aktuell `main`; återanvänd inte den öppna PR-grenen för nästa uppgift.
+- Försök inte hinna lägga commits före eller under en pågående CI-/reviewkörning av tidsskäl. Gör en komplett ändring, pusha den, låt gates utvärdera den HEAD:en och reagera därefter.
+- Efter varje korrigerande commit ska relevanta tester köras om och hela tillämpliga gate- och review-state verifieras på den nya HEAD:en före merge.
