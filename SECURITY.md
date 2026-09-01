@@ -17,9 +17,8 @@ Organisationens aktiva rulesets är verkställande sanning. Vid senaste verifier
 - required status `test`;
 - required status `scan-pr / osv-scan`;
 - strict latest-base enforcement;
-- 1 approval;
-- stale-review dismissal efter push;
-- last-push approval från någon annan än senaste pushern;
+- 0 approvals;
+- ingen last-push approval;
 - resolved review threads;
 - squash merge, utan bypass actors.
 

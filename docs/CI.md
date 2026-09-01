@@ -7,9 +7,8 @@ GitHub Actions verifierar `dumpen` med Node/npm, Wrangler dry-run och repository
 Organisationens aktiva rulesets är verkställande sanning. Vid senaste live-verifieringen gäller:
 
 - pull request krävs;
-- 1 approval krävs;
-- stale approvals avfärdas efter push;
-- senaste pushen måste godkännas av någon annan än den som gjorde den;
+- required approvals är 0;
+- last-push approval krävs inte;
 - relevanta review-trådar måste vara resolved;
 - deletion och non-fast-forward/force push blockeras;
 - inga bypass actors är konfigurerade;
@@ -17,7 +16,7 @@ Organisationens aktiva rulesets är verkställande sanning. Vid senaste live-ver
 
 Required status checks är:
 
-- `test` — kör `npm ci`, `npm test` och Wrangler dry-run.
+- `test` — blockerar ofärdiga remediation-seedfiler och kör `npm ci`, `npm test` samt Wrangler dry-run.
 - `scan-pr / osv-scan` — repositoryts PR-skanning med OSV.
 
 `strict_required_status_checks_policy` är `true`, så required checks måste gälla exakt aktuell PR-HEAD mot aktuell `main`.

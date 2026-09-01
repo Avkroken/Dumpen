@@ -18,7 +18,7 @@ Cloudflare Workers Builds äger produktion från `main`. GitHub Actions ska inte
 
 ## Merge-gates
 
-Live organisationsrulesets kräver `test` samt `scan-pr / osv-scan` med strict latest-base-verifiering. Org-rulesetet för `main` kräver dessutom en approval, avvisar stale reviews efter push, kräver last-push approval av någon annan, lösta review-trådar och CodeQL merge protection. Copilot och CodeRabbit är rådgivande, men faktiska relevanta findings ska utvärderas och åtgärdas.
+Live organisationsrulesets kräver `test` samt `scan-pr / osv-scan` med strict latest-base-verifiering. Org-rulesetet för `main` kräver 0 approvals, ingen last-push approval, lösta review-trådar och CodeQL merge protection. Copilot och CodeRabbit är rådgivande, men faktiska relevanta findings ska utvärderas och åtgärdas.
 
 Efter varje push ska required checks, Code Scanning och review-state verifieras på exakt aktuell HEAD.
 
@@ -31,7 +31,7 @@ Efter varje push ska required checks, Code Scanning och review-state verifieras 
 
 ## GitHub Actions och Cloudflare
 
-- `.github/workflows/ci.yml` producerar `test` och kör `npm ci`, `npm test` och Wrangler dry-run.
+- `.github/workflows/ci.yml` producerar `test`, blockerar ofärdiga remediation-seedfiler och kör `npm ci`, `npm test` och Wrangler dry-run.
 - `.github/workflows/osv-scanner.yml` är repositoryts egen OSV-definition och producerar `scan-pr / osv-scan` på pull requests.
 - Repositoryts workflows får inte skapa eller uppdatera PR:er eller branches, arma eller genomföra merge, automatisera review, delegera arbete till AI-agenter eller lagra säkerhetsalert-snapshots.
 - Security alerts hanteras av GitHubs native säkerhetsfunktioner och kodändringar går genom normala PR-gates.
