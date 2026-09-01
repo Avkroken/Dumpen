@@ -12,18 +12,25 @@ Policyn omfattar Worker-koden, R2-åtkomsten, autentiseringen med `DUMPEN_TOKEN`
 
 ## Merge protection
 
-Security enforcement för pull requests mot `main` består av två separata mekanismer:
+Organisationens aktiva rulesets är verkställande sanning. Vid senaste verifieringen kräver pull requests mot `main`:
 
-- required status check `osv`, som failar om OSV:s PR-skanning inte slutar i `success` och därmed blockerar nya dependency-vulnerabilities som scannern rapporterar,
-- GitHub Code Scanning merge protection för tool `CodeQL`, där security alerts från Medium och uppåt samt Error/Warning-resultat blockerar merge.
+- required status `test`;
+- required status `scan-pr / osv-scan`;
+- strict latest-base enforcement;
+- 0 approvals;
+- ingen last-push approval;
+- resolved review threads;
+- squash merge, utan bypass actors.
 
-Required CI använder strict latest-base-policy. `test` och `osv` måste vara gröna på exakt aktuell PR-HEAD, och relevanta review-trådar måste vara resolved.
+GitHub Code Scanning merge protection för `CodeQL` blockerar security alerts från Medium och uppåt samt Error/Warning-resultat.
 
-CodeRabbit och Copilot Code Review är rådgivande/best effort och är inte required status checks. Tjänsternas quota, rate limit eller uteblivna review blockerar inte ensamt merge, men faktiska relevanta findings och review-trådar ska fortfarande hanteras.
+Repositoryts `.github/workflows/osv-scanner.yml` producerar den repo-lokala PR-scanningen `scan-pr / osv-scan`. Org-rulesetet `main` refererar dessutom fortfarande till Regelverkets OSV-workflow som central required workflow; det är extern organisationsnivå och måste tas bort separat för att fullfölja den repo-specifika målarkitekturen.
+
+CodeRabbit och Copilot Code Review är rådgivande och inte required status checks. Tjänsternas quota, rate limit eller uteblivna review blockerar inte ensamt merge, men faktiska relevanta findings och review-trådar ska fortfarande hanteras.
 
 ## Security alerts
 
-Security alerts och remediation-issues hanteras centralt av organisationens Skvallerbyttan-flöde. Repositoryt ska inte ha ett separat lokalt `security-alert-issues.yml` eller en schemalagd Code Scanning-poller enbart för att duplicera den hanteringen.
+Repositoryt ska inte skapa remediation-branches eller PR:er, delegera AI-remediation, arma auto-merge eller lagra separata security snapshots genom GitHub Actions. Alert-ingestion och issue-reconciliation är ett separat organisationsansvar; normal repository-CI verifierar endast den aktuella koden och dess beroenden.
 
 ## Supported version
 
