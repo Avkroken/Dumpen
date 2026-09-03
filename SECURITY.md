@@ -10,27 +10,11 @@ Policyn omfattar Worker-koden, R2-åtkomsten, autentiseringen med `DUMPEN_TOKEN`
 
 `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` och `DUMPEN_ADMIN_PASSWORD` är runtime-secrets i Cloudflare och får aldrig committas till repot eller skrivas till loggar. Källkod refererar till dem via Worker-miljön, exempelvis `env.DUMPEN_TOKEN`.
 
-## Merge protection
+## Security automation
 
-Organisationens aktiva rulesets är verkställande sanning. Vid senaste verifieringen kräver pull requests mot `main`:
+Repository-CI verifierar den aktuella koden och dess beroenden. Merge- och CI-gates dokumenteras i `docs/CI.md` i stället för att dupliceras här.
 
-- required status `test`;
-- required status `scan-pr / osv-scan`;
-- strict latest-base enforcement;
-- 0 approvals;
-- ingen last-push approval;
-- resolved review threads;
-- squash merge, utan bypass actors.
-
-GitHub Code Scanning merge protection för `CodeQL` blockerar security alerts från Medium och uppåt samt Error/Warning-resultat.
-
-Repositoryts `.github/workflows/osv-scanner.yml` producerar den repo-lokala PR-scanningen `scan-pr / osv-scan`. Org-rulesetet `main` refererar dessutom fortfarande till Regelverkets OSV-workflow som central required workflow; det är extern organisationsnivå och måste tas bort separat för att fullfölja den repo-specifika målarkitekturen.
-
-CodeRabbit och Copilot Code Review är rådgivande och inte required status checks. Tjänsternas quota, rate limit eller uteblivna review blockerar inte ensamt merge, men faktiska relevanta findings och review-trådar ska fortfarande hanteras.
-
-## Security alerts
-
-Repositoryt ska inte skapa remediation-branches eller PR:er, delegera AI-remediation, arma auto-merge eller lagra separata security snapshots genom GitHub Actions. Alert-ingestion och issue-reconciliation är ett separat organisationsansvar; normal repository-CI verifierar endast den aktuella koden och dess beroenden.
+Repositoryt ska inte skapa remediation-branches eller PR:er, delegera AI-remediation, arma auto-merge eller lagra separata security snapshots genom GitHub Actions.
 
 ## Supported version
 
