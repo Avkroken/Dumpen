@@ -1,19 +1,16 @@
 # REPO.md
 
-`dumpen` is a Cloudflare Worker that stores versioned ZIP files in R2 and serves current or historical versions.
+`Dumpen` är en Cloudflare Worker som lagrar versionshanterade ZIP-filer i R2 och serverar aktuell eller historisk version.
 
-## Invariants
+## Invarians
 
-- Cloudflare Workers Builds owns production deployment from `main`; GitHub Actions validates but does not deploy production.
-- `wrangler.jsonc` is the source of truth for Worker bindings, routes and observability.
-- Validate untrusted input server-side. Admin credentials and upload tokens are verified server-side and fail closed when missing.
-- Never expose runtime secrets in repository files, logs, client output or frontend code.
-- Preserve the existing size, authentication and versioning behavior unless the task explicitly changes it.
+- Produktionsdistribution från `main` hanteras av Cloudflare Workers Builds.
+- `wrangler.jsonc` är källa till sanning för Worker-bindings, routes och observability.
+- Validera opålitlig input server-side.
+- Admin-credentials och upload-tokens verifieras server-side och ska fail closed när de saknas.
+- Runtime-hemligheter får inte exponeras i förrådsfiler, loggar, klientutdata eller frontend-kod.
+- Bevara befintligt beteende för storleksgränser, autentisering och versionshantering om inte uppgiften uttryckligen ändrar det.
 
-## Validation
+## Validering
 
-Run `npm ci`, `npm test` and relevant Wrangler dry-run validation for affected changes.
-
-`.github/workflows/ci.yml` currently owns the live required `test` context. Do not rename a required check without updating and verifying the live ruleset in the same migration.
-
-Pin third-party GitHub Actions to full commit SHAs.
+Kör `npm ci`, `npm test` och relevant Wrangler dry-run för berörda ändringar.
