@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/Avkroken/Dumpen/compare/v1.0.1...v1.0.2) (2026-09-06)
+
+
+### Documentation
+
+* förenkla REPO.md på svenska ([#56](https://github.com/Avkroken/Dumpen/issues/56)) ([9244245](https://github.com/Avkroken/Dumpen/commit/92442453bdd2fb50031987ae8627d1f65e79fddb))
+
 ## [1.0.1](https://github.com/Avkroken/Dumpen/compare/v1.0.0...v1.0.1) (2026-09-05)
 
 
