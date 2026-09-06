@@ -1,34 +1,19 @@
 # REPO.md
 
-This is the repository governance document for `Avkroken/Dumpen`. `Avkroken/.github/AGENTS.md` defines the shared organization-wide agent policy and defaults. This `REPO.md` defines the repository-specific requirements, technical contracts, invariants, validation rules, constraints, and operating instructions for this repository. Read both documents together. For matters specific to this repository, this document is authoritative unless live GitHub enforcement requires otherwise; the central defaults continue to apply where this document does not specialize them.
+`dumpen` is a Cloudflare Worker that stores versioned ZIP files in R2 and serves current or historical versions.
 
-## Repository
+## Invariants
 
-`dumpen` is a Cloudflare Worker that stores versioned ZIP files in R2 and serves the latest or a selected historical version from a stable URL. The Worker entrypoint is `src/index.js` and the Worker name is `dumpen`.
+- Cloudflare Workers Builds owns production deployment from `main`; GitHub Actions validates but does not deploy production.
+- `wrangler.jsonc` is the source of truth for Worker bindings, routes and observability.
+- Validate untrusted input server-side. Admin credentials and upload tokens are verified server-side and fail closed when missing.
+- Never expose runtime secrets in repository files, logs, client output or frontend code.
+- Preserve the existing size, authentication and versioning behavior unless the task explicitly changes it.
 
-Cloudflare Workers Builds owns production deployment from `main`. GitHub Actions must not duplicate the production deployment control plane.
+## Validation
 
-Runtime secrets including `DUMPEN_TOKEN`, `DUMPEN_ADMIN_USER` and `DUMPEN_ADMIN_PASSWORD` must never be written to repository files, logs or client-visible output.
+Run `npm ci`, `npm test` and relevant Wrangler dry-run validation for affected changes.
 
-## Security and runtime invariants
+`.github/workflows/ci.yml` currently owns the live required `test` context. Do not rename a required check without updating and verifying the live ruleset in the same migration.
 
-- Validate untrusted input at server-side boundaries.
-- Admin authorization and the upload token must be verified server-side and fail closed when the corresponding secret is missing.
-- Credentials must not be exposed to the frontend or logs.
-- Preserve existing size, authentication and versioning rules unless the task explicitly changes them.
-
-## GitHub Actions and Cloudflare
-
-- `.github/workflows/ci.yml` owns the `test` check context and runs `npm ci`, `npm test` and Wrangler dry-run validation while blocking unfinished remediation seed files.
-- Pin third-party GitHub Actions to full commit SHAs.
-- Workers Builds deploy command is `npm run deploy && npm run verify:production`.
-- `deploy` is direct `wrangler deploy --strict`.
-- `wrangler.jsonc` is the source of truth for Worker bindings, route and observability.
-
-## Local validation
-
-Run `npm ci`, `npm test` and the relevant Wrangler validation for affected changes.
-
-## Response format
-
-Read and follow `SKILLS.md` when working in this repository.
+Pin third-party GitHub Actions to full commit SHAs.
