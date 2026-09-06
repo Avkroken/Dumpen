@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.3](https://github.com/Avkroken/Dumpen/compare/v1.0.2...v1.0.3) (2026-09-06)
+
+
+### Documentation
+
+* remove duplicated GitHub governance ([73eb907](https://github.com/Avkroken/Dumpen/commit/73eb907c08d71ac8ac9fc42c07727b3d5be91a4a))
+* rensa duplicerad GitHub-governance ([#61](https://github.com/Avkroken/Dumpen/issues/61)) ([73eb907](https://github.com/Avkroken/Dumpen/commit/73eb907c08d71ac8ac9fc42c07727b3d5be91a4a))
+
 ## [1.0.2](https://github.com/Avkroken/Dumpen/compare/v1.0.1...v1.0.2) (2026-09-06)
 
 
