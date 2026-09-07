@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.4](https://github.com/Avkroken/Dumpen/compare/v1.0.3...v1.0.4) (2026-09-07)
+
+
+### Documentation
+
+* document repository governance ([8496902](https://github.com/Avkroken/Dumpen/commit/84969022234b7c303a70fd963c088adfdceca908))
+* dokumentera repository-styrning ([#65](https://github.com/Avkroken/Dumpen/issues/65)) ([8496902](https://github.com/Avkroken/Dumpen/commit/84969022234b7c303a70fd963c088adfdceca908))
+
 ## [1.0.3](https://github.com/Avkroken/Dumpen/compare/v1.0.2...v1.0.3) (2026-09-06)
 
 
