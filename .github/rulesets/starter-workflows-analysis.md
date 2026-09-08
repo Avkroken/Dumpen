@@ -12,9 +12,14 @@ Repositoryt är en Cloudflare Worker med ett root-`package.json`. Den dokumenter
 
 Action-referenserna i workflow-filerna är fullständigt SHA-pinnade till motsvarande v4-referenser för att följa repositoryts Actions-policy utan att lägga till egen workflow-logik.
 
-## Required checks
+## Verifierade required checks
 
-Rulesetet uppdateras inte förrän de nya standardmallarna faktiskt har producerat observerbara checknamn på den här PR-branchen. Den tidigare egna required checken `test` ska därför inte ersättas genom antagande.
+På aktuell PR-branch har standardmallarna nu producerat och klarat följande jobb:
+
+- Node.js CI: `build (24.x)`
+- Dependency review: `dependency-review`
+
+Dessa observerade namn är därför underlag för repositoryts ruleset. Den tidigare egna required checken `test` ska inte längre användas i den versionshanterade repo-ruleset-filen.
 
 ## Funktioner som standardmallarna inte täcker
 
