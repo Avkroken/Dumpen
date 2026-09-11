@@ -9,7 +9,6 @@ review:critical:
       - any-glob-to-any-file:
           - wrangler.jsonc
           - scripts/verify-production.mjs
-          - .github/workflows/deploy.yml
 
 dependencies:
   - changed-files:
@@ -25,7 +24,6 @@ review:high:
   - changed-files:
       - any-glob-to-any-file:
           - wrangler.jsonc
-          - .github/workflows/deploy.yml
 
 review:low:
   - changed-files:
@@ -41,4 +39,3 @@ review:level:deep:
   - changed-files:
       - any-glob-to-any-file:
           - wrangler.jsonc
-          - .github/workflows/deploy.yml
