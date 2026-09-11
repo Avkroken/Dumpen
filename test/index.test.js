@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/index.js";
+import worker, { claimTicket } from "../src/index.js";
 
 const TOKEN = "test-token";
 const ADMIN_USER = "admin";
@@ -18,17 +18,42 @@ function fakeR2(seed = []) {
   }]));
   return {
     puts: [],
-    async put(key, body) {
-      this.puts.push({ key, body });
-      objects.set(key, { key, uploaded: new Date(Number(key.match(/\/(\d+)\.zip$/)?.[1] || Date.now())), body, size: sizeOf(body) });
+    async put(key, body, options = {}) {
+      const onlyIf = options.onlyIf;
+      const ifNoneMatch = onlyIf instanceof Headers ? onlyIf.get("if-none-match") : null;
+      if (ifNoneMatch === "*" && objects.has(key)) return null;
+      this.puts.push({ key, body, options });
+      const timestamp = Number(key.match(/\/(\d+)\.zip$/)?.[1] || Date.now());
+      const entry = { key, uploaded: new Date(timestamp), body, size: sizeOf(body) };
+      objects.set(key, entry);
+      return { key, etag: `etag-${this.puts.length}` };
+    },
+    async delete(key) {
+      objects.delete(key);
     },
     async list({ prefix = "" } = {}) {
-      return { objects: [...objects.values()].filter((o) => o.key.startsWith(prefix)).map(({ key, uploaded, size }) => ({ key, uploaded, size })), truncated: false };
+      return {
+        objects: [...objects.values()]
+          .filter((o) => o.key.startsWith(prefix))
+          .map(({ key, uploaded, size }) => ({ key, uploaded, size })),
+        truncated: false,
+      };
     },
     async get(key) {
       const obj = objects.get(key);
-      return obj ? { body: obj.body } : null;
+      if (!obj) return null;
+      return {
+        body: obj.body,
+        async text() {
+          if (typeof obj.body === "string") return obj.body;
+          if (obj.body instanceof ArrayBuffer) return new TextDecoder().decode(obj.body);
+          if (ArrayBuffer.isView(obj.body)) return new TextDecoder().decode(obj.body);
+          return String(obj.body ?? "");
+        },
+      };
     },
+    has(key) { return objects.has(key); },
+    keys() { return [...objects.keys()]; },
   };
 }
 
@@ -39,11 +64,25 @@ function request(path, { method = "GET", token, body, headers = {} } = {}) {
 }
 
 function env(r2 = fakeR2()) {
-  return { DUMPEN_TOKEN: TOKEN, DUMPEN_ADMIN_USER: ADMIN_USER, DUMPEN_ADMIN_PASSWORD: ADMIN_PASSWORD, DUMPEN: r2 };
+  return {
+    DUMPEN_TOKEN: TOKEN,
+    DUMPEN_ADMIN_USER: ADMIN_USER,
+    DUMPEN_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    DUMPEN: r2,
+  };
 }
 
 function basic(user = ADMIN_USER, password = ADMIN_PASSWORD) {
   return `Basic ${btoa(`${user}:${password}`)}`;
+}
+
+async function mintTicket(e) {
+  const response = await worker.fetch(request("/api/tickets", {
+    method: "POST",
+    headers: { authorization: basic() },
+  }), e);
+  assert.equal(response.status, 201);
+  return response.json();
 }
 
 const versions = [
@@ -52,23 +91,25 @@ const versions = [
   { key: "regelverk/2000.zip", uploaded: new Date(2000), body: "middle" },
 ];
 
-test("root visar mörk dashboard, status och login", async () => {
+test("root visar privat dashboard och engångsticket-flöde", async () => {
   const response = await worker.fetch(request("/"), env(fakeR2(versions)));
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /dumpen\.denied\.se/);
-  assert.match(html, /Lista objekt/);
+  assert.match(html, /Privat kontrollpanel/);
+  assert.match(html, /engångsticket/i);
+  assert.match(html, /Vanlig GET är privat/);
   assert.match(html, /--bg:#050505/);
   assert.match(html, /20 MB per fil/);
   assert.match(html, /500 MB totalt/);
 });
 
-test("fel token på PUT ger 401", async () => {
+test("fel token på legacy PUT ger 401", async () => {
   const response = await worker.fetch(request("/regelverk", { method: "PUT", token: "fel", body: "zip" }), env());
   assert.equal(response.status, 401);
 });
 
-test("PUT failar stängt om upload-token saknas", async () => {
+test("legacy PUT failar stängt om upload-token saknas", async () => {
   const e = env();
   delete e.DUMPEN_TOKEN;
   const response = await worker.fetch(request("/regelverk", { method: "PUT", token: "undefined", body: "zip" }), e);
@@ -76,7 +117,7 @@ test("PUT failar stängt om upload-token saknas", async () => {
   assert.equal(await response.text(), "upload token not configured\n");
 });
 
-test("PUT skapar timestampad nyckel", async () => {
+test("legacy PUT skapar timestampad nyckel", async () => {
   const r2 = fakeR2();
   const originalNow = Date.now;
   Date.now = () => 1787724000123;
@@ -87,38 +128,146 @@ test("PUT skapar timestampad nyckel", async () => {
   } finally { Date.now = originalNow; }
 });
 
-test("PUT över 20 MB ger 413", async () => {
+test("legacy PUT över 20 MB ger 413", async () => {
   const response = await worker.fetch(request("/stor", { method: "PUT", token: TOKEN, body: new Uint8Array(20 * MiB + 1) }), env());
   assert.equal(response.status, 413);
 });
 
-test("PUT över 500 MB totalt ger 507", async () => {
+test("legacy PUT över 500 MB totalt ger 507", async () => {
   const r2 = fakeR2([{ key: "gammalt/1.zip", uploaded: new Date(1), size: 500 * MiB }]);
   const response = await worker.fetch(request("/nytt", { method: "PUT", token: TOKEN, body: new Uint8Array([1]) }), env(r2));
   assert.equal(response.status, 507);
 });
 
-test("publik GET utan objekt ger 404", async () => {
-  const response = await worker.fetch(request("/regelverk"), env());
-  assert.equal(response.status, 404);
+test("publik GET är stängd", async () => {
+  const response = await worker.fetch(request("/regelverk"), env(fakeR2(versions)));
+  assert.equal(response.status, 401);
+  assert.match(response.headers.get("www-authenticate"), /Basic/);
 });
 
-test("publik GET returnerar nyaste", async () => {
-  const response = await worker.fetch(request("/regelverk"), env(fakeR2(versions)));
+test("autentiserad GET returnerar nyaste", async () => {
+  const response = await worker.fetch(request("/regelverk", { headers: { authorization: basic() } }), env(fakeR2(versions)));
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "new");
   assert.equal(response.headers.get("x-dumpen-key"), "regelverk/3000.zip");
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
 });
 
-test("?n=2 returnerar näst nyaste", async () => {
-  const response = await worker.fetch(request("/regelverk?n=2"), env(fakeR2(versions)));
+test("autentiserad ?n=2 returnerar näst nyaste", async () => {
+  const response = await worker.fetch(request("/regelverk?n=2", { headers: { authorization: basic() } }), env(fakeR2(versions)));
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "middle");
 });
 
-test("?n=99 ger 404", async () => {
-  const response = await worker.fetch(request("/regelverk?n=99"), env(fakeR2(versions)));
+test("autentiserad ?n=99 ger 404", async () => {
+  const response = await worker.fetch(request("/regelverk?n=99", { headers: { authorization: basic() } }), env(fakeR2(versions)));
   assert.equal(response.status, 404);
+});
+
+test("ticket-minting kräver admininloggning", async () => {
+  const response = await worker.fetch(request("/api/tickets", { method: "POST" }), env());
+  assert.equal(response.status, 401);
+});
+
+test("admin kan skapa kortlivad engångsticket", async () => {
+  const r2 = fakeR2();
+  const data = await mintTicket(env(r2));
+  assert.match(data.uploadUrl, /^https:\/\/dumpen\.denied\.se\/api\/upload\/[0-9a-f]{64}$/);
+  assert.equal(data.oneTime, true);
+  assert.equal(data.maxUploadBytes, 20 * MiB);
+  assert.ok(new Date(data.expiresAt).getTime() > Date.now());
+  assert.equal(r2.keys().filter((key) => key.startsWith("_system/tickets/")).length, 1);
+});
+
+test("ticket laddar upp till servergenererad nyckel och kan inte återanvändas", async () => {
+  const r2 = fakeR2();
+  const e = env(r2);
+  const ticket = await mintTicket(e);
+  const path = new URL(ticket.uploadUrl).pathname;
+
+  const first = await worker.fetch(request(path, { method: "PUT", body: "zip-data" }), e);
+  assert.equal(first.status, 201);
+  const uploaded = await first.json();
+  assert.match(uploaded.name, /^drop-\d{8}-[0-9a-f]{12}$/);
+  assert.equal(uploaded.key.startsWith(`${uploaded.name}/`), true);
+  assert.equal(r2.has(uploaded.key), true);
+
+  const replay = await worker.fetch(request(path, { method: "PUT", body: "second" }), e);
+  assert.equal(replay.status, 410);
+});
+
+test("ticket-claim är atomisk", async () => {
+  const r2 = fakeR2();
+  const results = await Promise.all([
+    claimTicket(r2, "same-digest"),
+    claimTicket(r2, "same-digest"),
+  ]);
+  assert.deepEqual(results.sort(), [false, true]);
+  assert.equal(r2.keys().filter((key) => key === "_system/claims/same-digest").length, 1);
+});
+
+test("samma ticket kan inte vinna två samtidiga uploads", async () => {
+  const r2 = fakeR2();
+  const e = env(r2);
+  const ticket = await mintTicket(e);
+  const path = new URL(ticket.uploadUrl).pathname;
+
+  const [a, b] = await Promise.all([
+    worker.fetch(request(path, { method: "PUT", body: "first" }), e),
+    worker.fetch(request(path, { method: "PUT", body: "second" }), e),
+  ]);
+  const statuses = [a.status, b.status];
+  assert.equal(statuses.filter((status) => status === 201).length, 1);
+  assert.equal(statuses.filter((status) => status === 409 || status === 410).length, 1);
+  assert.equal(r2.keys().filter((key) => /^drop-/.test(key)).length, 1);
+});
+
+test("för stor capability-upload förbrukar inte ticketen", async () => {
+  const r2 = fakeR2();
+  const e = env(r2);
+  const ticket = await mintTicket(e);
+  const path = new URL(ticket.uploadUrl).pathname;
+
+  const tooLarge = await worker.fetch(request(path, {
+    method: "PUT",
+    body: "x",
+    headers: { "content-length": String(20 * MiB + 1) },
+  }), e);
+  assert.equal(tooLarge.status, 413);
+
+  const retry = await worker.fetch(request(path, { method: "PUT", body: "ok" }), e);
+  assert.equal(retry.status, 201);
+});
+
+test("utgången ticket nekas och tas bort", async () => {
+  const r2 = fakeR2();
+  const e = env(r2);
+  const originalNow = Date.now;
+  let now = 1_800_000_000_000;
+  Date.now = () => now;
+  try {
+    const ticket = await mintTicket(e);
+    const path = new URL(ticket.uploadUrl).pathname;
+    now += 16 * 60 * 1000;
+    const response = await worker.fetch(request(path, { method: "PUT", body: "zip" }), e);
+    assert.equal(response.status, 410);
+    assert.equal(r2.keys().filter((key) => key.startsWith("_system/tickets/")).length, 0);
+  } finally { Date.now = originalNow; }
+});
+
+test("capability-upload är privat efter uppladdning", async () => {
+  const r2 = fakeR2();
+  const e = env(r2);
+  const ticket = await mintTicket(e);
+  const upload = await worker.fetch(request(new URL(ticket.uploadUrl).pathname, { method: "PUT", body: "private-data" }), e);
+  const { name } = await upload.json();
+
+  const publicRead = await worker.fetch(request(`/api/download/${name}`), e);
+  assert.equal(publicRead.status, 401);
+
+  const privateRead = await worker.fetch(request(`/api/download/${name}`, { headers: { authorization: basic() } }), e);
+  assert.equal(privateRead.status, 200);
+  assert.equal(await privateRead.text(), "private-data");
 });
 
 test("objektlista kräver admininloggning", async () => {
@@ -131,12 +280,15 @@ test("objektlista nekar fel lösenord", async () => {
   assert.equal(response.status, 401);
 });
 
-test("objektlista grupperar versioner efter namn", async () => {
+test("objektlista grupperar versioner och döljer intern ticket-metadata", async () => {
   const r2 = fakeR2([...versions, { key: "backup/4000.zip", uploaded: new Date(4000), body: "backup" }]);
-  const response = await worker.fetch(request("/api/objects", { headers: { authorization: basic() } }), env(r2));
+  const e = env(r2);
+  await mintTicket(e);
+  const response = await worker.fetch(request("/api/objects", { headers: { authorization: basic() } }), e);
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.equal(data.objects.length, 2);
+  assert.equal(data.objects.some((x) => x.name === "_system"), false);
   assert.equal(data.objects.find((x) => x.name === "regelverk").versions, 3);
 });
 
