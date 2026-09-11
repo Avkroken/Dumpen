@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/index.js";
+import worker, { claimTicket } from "../src/index.js";
 
 const TOKEN = "test-token";
 const ADMIN_USER = "admin";
@@ -196,6 +196,16 @@ test("ticket laddar upp till servergenererad nyckel och kan inte återanvändas"
   assert.equal(replay.status, 410);
 });
 
+test("ticket-claim är atomisk", async () => {
+  const r2 = fakeR2();
+  const results = await Promise.all([
+    claimTicket(r2, "same-digest"),
+    claimTicket(r2, "same-digest"),
+  ]);
+  assert.deepEqual(results.sort(), [false, true]);
+  assert.equal(r2.keys().filter((key) => key === "_system/claims/same-digest").length, 1);
+});
+
 test("samma ticket kan inte vinna två samtidiga uploads", async () => {
   const r2 = fakeR2();
   const e = env(r2);
@@ -206,7 +216,9 @@ test("samma ticket kan inte vinna två samtidiga uploads", async () => {
     worker.fetch(request(path, { method: "PUT", body: "first" }), e),
     worker.fetch(request(path, { method: "PUT", body: "second" }), e),
   ]);
-  assert.deepEqual([a.status, b.status].sort((x, y) => x - y), [201, 409]);
+  const statuses = [a.status, b.status];
+  assert.equal(statuses.filter((status) => status === 201).length, 1);
+  assert.equal(statuses.filter((status) => status === 409 || status === 410).length, 1);
   assert.equal(r2.keys().filter((key) => /^drop-/.test(key)).length, 1);
 });
 
