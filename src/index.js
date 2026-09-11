@@ -238,6 +238,14 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     const segments = url.pathname.split("/").filter(Boolean);
+    const canonicalPath = "/" + segments.join("/");
+    if (url.pathname !== canonicalPath) {
+      url.pathname = canonicalPath;
+      return new Response(null, {
+        status: 307,
+        headers: { location: url.toString(), "cache-control": "no-store" },
+      });
+    }
 
     if (segments[0] === "api" && segments[1] === "objects") {
       if (req.method !== "GET") return new Response("method\n", { status: 405 });
@@ -307,7 +315,15 @@ export default {
       return new Response(`${key}\n`, { status: 201 });
     }
 
-    if (req.method === "GET") return downloadByName(req, env, name, url);
+    if (req.method === "GET") {
+      // Alla äldre nedladdningslänkar går genom samma Access-skyddade väg.
+      // Skicka aldrig filinnehåll direkt från den publika legacy-routen.
+      url.pathname = `/api/download/${name}`;
+      return new Response(null, {
+        status: 302,
+        headers: { location: url.toString(), "cache-control": "no-store" },
+      });
+    }
 
     return new Response("method\n", { status: 405 });
   },

@@ -139,14 +139,14 @@ test("legacy PUT över 500 MB totalt ger 507", async () => {
   assert.equal(response.status, 507);
 });
 
-test("publik GET är stängd", async () => {
-  const response = await worker.fetch(request("/regelverk"), env(fakeR2(versions)));
+test("publik nedladdning kräver lösenord bakom Access", async () => {
+  const response = await worker.fetch(request("/api/download/regelverk"), env(fakeR2(versions)));
   assert.equal(response.status, 401);
   assert.match(response.headers.get("www-authenticate"), /Basic/);
 });
 
 test("autentiserad GET returnerar nyaste", async () => {
-  const response = await worker.fetch(request("/regelverk", { headers: { authorization: basic() } }), env(fakeR2(versions)));
+  const response = await worker.fetch(request("/api/download/regelverk", { headers: { authorization: basic() } }), env(fakeR2(versions)));
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "new");
   assert.equal(response.headers.get("x-dumpen-key"), "regelverk/3000.zip");
@@ -154,13 +154,13 @@ test("autentiserad GET returnerar nyaste", async () => {
 });
 
 test("autentiserad ?n=2 returnerar näst nyaste", async () => {
-  const response = await worker.fetch(request("/regelverk?n=2", { headers: { authorization: basic() } }), env(fakeR2(versions)));
+  const response = await worker.fetch(request("/api/download/regelverk?n=2", { headers: { authorization: basic() } }), env(fakeR2(versions)));
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "middle");
 });
 
 test("autentiserad ?n=99 ger 404", async () => {
-  const response = await worker.fetch(request("/regelverk?n=99", { headers: { authorization: basic() } }), env(fakeR2(versions)));
+  const response = await worker.fetch(request("/api/download/regelverk?n=99", { headers: { authorization: basic() } }), env(fakeR2(versions)));
   assert.equal(response.status, 404);
 });
 
@@ -298,4 +298,29 @@ test("objektlista ger 503 om adminsecrets saknas", async () => {
   delete e.DUMPEN_ADMIN_PASSWORD;
   const response = await worker.fetch(request("/api/objects", { headers: { authorization: basic() } }), e);
   assert.equal(response.status, 503);
+});
+
+
+test("legacy GET skickar även autentiserade besökare via MFA-vägen utan R2-läsning", async () => {
+  for (const headers of [{}, { authorization: basic() }]) {
+    const response = await worker.fetch(request("/regelverk?n=2", { headers }), env({
+      list() { throw new Error("Legacy route must not read storage"); },
+      get() { throw new Error("Legacy route must not read storage"); },
+    }));
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get("location"), "https://dumpen.denied.se/api/download/regelverk?n=2");
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(await response.text(), "");
+  }
+});
+
+
+test("dubbla snedstreck kan inte kringgå Access-routens sökväg", async () => {
+  for (const path of ["//api/download/regelverk", "/api//download/regelverk", "/api//tickets"]) {
+    const response = await worker.fetch(request(path, { headers: { authorization: basic() } }), env({
+      list() { throw new Error("Noncanonical route must not read storage"); },
+    }));
+    assert.equal(response.status, 307);
+    assert.equal(new URL(response.headers.get("location")).pathname, "/" + path.split("/").filter(Boolean).join("/"));
+  }
 });

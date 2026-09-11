@@ -2,6 +2,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dumpen",
   "main": "src/index.js",
+  "workers_dev": false,
+  "preview_urls": false,
   "compatibility_date": "2026-08-26",
   "account_id": "b74f8c0c6a92f3006483840cf27372fd",
   "observability": {
