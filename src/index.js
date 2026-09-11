@@ -272,7 +272,7 @@ export default {
     }
 
     const name = segments[0];
-    if (!name) {
+    if (!name || (name === "admin" && segments.length === 1)) {
       if (req.method !== "GET") return new Response("method\n", { status: 405 });
       const stats = objectStats(await listAll(env.DUMPEN));
       return new Response(homePage(stats, {
@@ -280,6 +280,7 @@ export default {
         maxBucketBytes: MAX_BUCKET_BYTES,
         retentionDays: RETENTION_DAYS,
         ticketTtlMinutes: TICKET_TTL_MS / 60000,
+        adminPage: name === "admin",
       }), {
         headers: {
           "content-type": "text/html; charset=utf-8",

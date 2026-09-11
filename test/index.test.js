@@ -324,3 +324,14 @@ test("dubbla snedstreck kan inte kringgå Access-routens sökväg", async () => 
     assert.equal(new URL(response.headers.get("location")).pathname, "/" + path.split("/").filter(Boolean).join("/"));
   }
 });
+
+
+test("publik startsida leder till Access innan lösenordsformuläret visas", async () => {
+  const publicPage = await worker.fetch(request("/"), env());
+  const publicHtml = await publicPage.text();
+  assert.match(publicHtml, /href="\/admin"/);
+  assert.doesNotMatch(publicHtml, /<form id="login"/);
+  const adminPage = await worker.fetch(request("/admin"), env());
+  assert.equal(adminPage.status, 200);
+  assert.match(await adminPage.text(), /<form id="login"/);
+});
