@@ -143,7 +143,7 @@ async function createUploadTicket(req, env) {
   }, { status: 201, headers: { "cache-control": "no-store" } });
 }
 
-async function claimTicket(bucket, digest) {
+export async function claimTicket(bucket, digest) {
   const condition = new Headers({ "if-none-match": "*" });
   const result = await bucket.put(
     `${CLAIM_PREFIX}${digest}`,
