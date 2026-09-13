@@ -3,6 +3,11 @@ import test from "node:test";
 
 import { accessRoute } from "../src/access.js";
 
+test("public root is served without bucket metadata", () => {
+  assert.deepEqual(accessRoute("/", "GET"), { type: "public-page", pathname: "/" });
+  assert.deepEqual(accessRoute("/", "HEAD"), { type: "public-page", pathname: "/" });
+});
+
 test("privileged admin APIs live under /admin/api", () => {
   assert.deepEqual(accessRoute("/admin/api/objects"), { type: "rewrite", pathname: "/api/objects" });
   assert.deepEqual(accessRoute("/admin/api/tickets"), { type: "rewrite", pathname: "/api/tickets" });
