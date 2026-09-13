@@ -1,5 +1,2 @@
 blank_issues_enabled: false
-contact_links:
-  - name: Report a security vulnerability
-    url: https://github.com/Avkroken/Dumpen/security/advisories/new
-    about: Privately report a vulnerability to the maintainers.
+contact_links: []
