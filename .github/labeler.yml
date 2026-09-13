@@ -1,41 +1,25 @@
-javascript:
-  - changed-files:
-      - any-glob-to-any-file:
-          - src/**
-          - test/**
-
-review:critical:
-  - changed-files:
-      - any-glob-to-any-file:
-          - wrangler.jsonc
-          - scripts/verify-production.mjs
-
-dependencies:
-  - changed-files:
-      - any-glob-to-any-file:
-          - package.json
-          - package-lock.json
-
 documentation:
   - changed-files:
-      - any-glob-to-any-file: "**/*.md"
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
 
-review:high:
+enhancement:
   - changed-files:
       - any-glob-to-any-file:
-          - wrangler.jsonc
-
-review:low:
-  - changed-files:
-      - any-glob-to-all-files:
-          - "**/*.md"
-
-review:level:normal:
-  - changed-files:
-      - any-glob-to-all-files:
-          - "**/*.md"
-
-review:level:deep:
-  - changed-files:
-      - any-glob-to-any-file:
-          - wrangler.jsonc
+          - ".github/**"
+          - "CODEOWNERS"
+          - "src/**"
+          - "app/**"
+          - "lib/**"
+          - "test/**"
+          - "tests/**"
+          - "**/package.json"
+          - "**/package-lock.json"
+          - "**/pyproject.toml"
+          - "**/requirements*.txt"
+          - "**/Dockerfile"
+          - "**/Package.swift"
+          - "**/*.csproj"
+          - "**/*.gradle"
+          - "**/*.gradle.kts"
