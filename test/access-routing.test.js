@@ -1,11 +1,38 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { accessRoute } from "../src/access.js";
+import worker, { accessRoute } from "../src/access.js";
 
 test("public root is served without bucket metadata", () => {
   assert.deepEqual(accessRoute("/", "GET"), { type: "public-page", pathname: "/" });
   assert.deepEqual(accessRoute("/", "HEAD"), { type: "public-page", pathname: "/" });
+});
+
+test("crawler control endpoints are handled before the app", () => {
+  assert.deepEqual(accessRoute("/robots.txt", "GET"), { type: "robots", pathname: "/robots.txt" });
+  assert.deepEqual(accessRoute("/sitemap.xml", "GET"), { type: "not-found", pathname: "/sitemap.xml" });
+});
+
+test("public root is explicitly noindex", async () => {
+  const response = await worker.fetch(new Request("https://dumpen.denied.se/"), {}, {});
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow, noarchive");
+  assert.match(html, /<meta name="robots" content="noindex,nofollow,noarchive">/);
+});
+
+test("robots allows crawling so noindex can be observed", async () => {
+  const response = await worker.fetch(new Request("https://dumpen.denied.se/robots.txt"), {}, {});
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/plain; charset=utf-8");
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow, noarchive");
+  assert.equal(await response.text(), "User-agent: *\nAllow: /\n");
+});
+
+test("Dumpen does not advertise a sitemap", async () => {
+  const response = await worker.fetch(new Request("https://dumpen.denied.se/sitemap.xml"), {}, {});
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow, noarchive");
 });
 
 test("privileged admin APIs live under /admin/api", () => {

@@ -5,6 +5,7 @@ export function publicPage() {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex,nofollow,noarchive">
   <title>dumpen.denied.se</title>
   <style>
     :root{color-scheme:dark;--bg:#050505;--panel:#0b0b0d;--line:#252529;--text:#f4f4f5;--muted:#a1a1aa;--accent:#6ee71e}
